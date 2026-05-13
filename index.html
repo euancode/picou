@@ -288,6 +288,7 @@
       <div class="section-title" style="font-size:17px; margin-bottom:0">📋 Today's Feeds</div>
       <button class="sort-toggle-btn" onclick="toggleSortOrder()" style="background:none;border:1px solid var(--border);border-radius:50px;padding:5px 12px;font-size:12px;font-weight:700;color:var(--text-soft);cursor:pointer;font-family:'Nunito',sans-serif">↓ Newest first</button>
     </div>
+    <div id="feedTodayStats" style="font-size:13px;color:var(--text-soft);margin-bottom:6px"></div>
     <button class="add-past-btn" onclick="openRetroModal('feed')">+ Add past feed</button>
     <div style="height:8px"></div>
     <div id="feedTodayList"></div>
@@ -318,6 +319,7 @@
       <div class="section-title" style="font-size:17px; margin-bottom:0">📋 Today's Nappies</div>
       <button class="sort-toggle-btn" onclick="toggleSortOrder()" style="background:none;border:1px solid var(--border);border-radius:50px;padding:5px 12px;font-size:12px;font-weight:700;color:var(--text-soft);cursor:pointer;font-family:'Nunito',sans-serif">↓ Newest first</button>
     </div>
+    <div id="nappyTodayStats" style="font-size:13px;color:var(--text-soft);margin-bottom:6px"></div>
     <button class="add-past-btn" onclick="openRetroModal('nappy')">+ Add past nappy</button>
     <div style="height:8px"></div>
     <div id="nappyTodayList"></div>
@@ -342,6 +344,7 @@
       <div class="section-title" style="font-size:17px; margin-bottom:0">📋 Today's Sleeps</div>
       <button class="sort-toggle-btn" onclick="toggleSortOrder()" style="background:none;border:1px solid var(--border);border-radius:50px;padding:5px 12px;font-size:12px;font-weight:700;color:var(--text-soft);cursor:pointer;font-family:'Nunito',sans-serif">↓ Newest first</button>
     </div>
+    <div id="sleepTodayStats" style="font-size:13px;color:var(--text-soft);margin-bottom:6px"></div>
     <button class="add-past-btn" onclick="openRetroModal('sleep')">+ Add past sleep</button>
     <div style="height:8px"></div>
     <div id="sleepTodayList"></div>
@@ -375,6 +378,12 @@
     <button class="data-btn danger" onclick="clearAllData()"><span class="d-icon">🗑️</span> Clear All Data</button>
   </div>
 
+  <!-- TRENDS PANEL -->
+  <div class="panel" id="panel-trends">
+    <div class="section-title"><span>📈</span>Trends</div>
+    <div id="trendsContent"></div>
+  </div>
+
 </div>
 
 <nav class="bottom-nav">
@@ -395,6 +404,10 @@
   <button class="nav-btn" id="nav-history" onclick="showPanel('history')">
     <span class="nav-icon">📊</span>
     <span class="nav-label">Summary</span>
+  </button>
+  <button class="nav-btn" id="nav-trends" onclick="showPanel('trends')">
+    <span class="nav-icon">📈</span>
+    <span class="nav-label">Trends</span>
   </button>
 </nav>
 
@@ -618,6 +631,7 @@ function showPanel(name) {
   if (name === 'feed') refreshTodayList('feed');
   if (name === 'nappy') refreshTodayList('nappy');
   if (name === 'sleep') refreshTodayList('sleep');
+  if (name === 'trends') refreshTrends();
 }
 
 function selectSide(side) {
@@ -685,7 +699,7 @@ function updateColourGrid() {
   grid.innerHTML = colours.map(c => `
     <button class="colour-chip ${nappyColour === c.label ? 'selected' : ''}"
       style="background:${c.bg}; color:${c.text}"
-      onclick="selectColour('${c.label.replace(/'/g,"\\'")}")">
+      onclick="selectColour('${c.label.replace(/'/g,"\\'")}')">
       ${c.label}
     </button>
   `).join('');
@@ -876,15 +890,89 @@ function refreshTodayList(type) {
   const today = new Date(); today.setHours(0,0,0,0);
   const todayTs = today.getTime();
   let logs = state.logs.filter(l => l.type === type && l.startTime >= todayTs);
+  const allCount = state.logs.filter(l => l.type === type).length;
+  const statsEl = document.getElementById(type + 'TodayStats');
+  if (statsEl) statsEl.textContent = `Today: ${logs.length}  ·  All time: ${allCount}`;
   const el = document.getElementById(type + 'TodayList');
   if (!logs.length) { el.innerHTML = '<div class="empty-state" style="padding:20px"><span class="empty-emoji" style="font-size:32px">📭</span>None logged yet today</div>'; return; }
   if (sortAsc) logs = [...logs].reverse();
   el.innerHTML = logs.map(log => renderHistoryItem(log)).join('');
 }
 
+function refreshTrends() {
+  const panel = document.getElementById('trendsContent');
+  if (!panel) return;
+
+  function computeTrend(type) {
+    const logs = state.logs.filter(l => l.type === type).slice().sort((a,b) => a.startTime - b.startTime);
+    if (!logs.length) return null;
+    const intervals = [];
+    for (let i = 1; i < logs.length; i++) intervals.push(logs[i].startTime - logs[i-1].startTime);
+    const avgMs = intervals.length ? intervals.reduce((a,b) => a+b, 0) / intervals.length : null;
+    const last = logs[logs.length - 1];
+    const nextMs = avgMs != null ? last.startTime + avgMs : null;
+    return { avgMs, last, nextMs, count: logs.length };
+  }
+
+  const now = Date.now();
+
+  function fmtInterval(ms) {
+    if (ms == null) return '–';
+    const h = Math.floor(ms / 3600000);
+    const m = Math.floor((ms % 3600000) / 60000);
+    return h > 0 ? `${h}h ${m}m` : `${m}m`;
+  }
+
+  function fmtTime(ts) {
+    return new Date(ts).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  }
+
+  function fmtNext(ts) {
+    if (ts == null) return '<span style="color:var(--text-lighter)">Need more data</span>';
+    const diff = ts - now;
+    const abs = Math.abs(diff);
+    const h = Math.floor(abs / 3600000);
+    const m = Math.floor((abs % 3600000) / 60000);
+    const rel = h > 0 ? `${h}h ${m}m` : `${m}m`;
+    const time = fmtTime(ts);
+    if (diff < 0) return `${time} <span style="color:#E05252;font-size:12px">(${rel} overdue)</span>`;
+    if (diff < 30 * 60000) return `${time} <span style="color:#D4932A;font-size:12px">(in ${rel})</span>`;
+    return `${time} <span style="color:#2E9E6A;font-size:12px">(in ${rel})</span>`;
+  }
+
+  function borderColor(nextMs) {
+    if (nextMs == null) return 'var(--border)';
+    const diff = nextMs - now;
+    if (diff < 0) return '#E05252';
+    if (diff < 30 * 60000) return '#D4932A';
+    return '#2E9E6A';
+  }
+
+  const types = [
+    { type: 'feed',  emoji: '🤱', label: 'Feeds',   bg: 'var(--feed-bg)' },
+    { type: 'nappy', emoji: '🩲', label: 'Nappies', bg: 'var(--nappy-bg)' },
+    { type: 'sleep', emoji: '😴', label: 'Sleeps',  bg: 'var(--sleep-bg)' },
+  ];
+
+  panel.innerHTML = types.map(({ type, emoji, label, bg }) => {
+    const t = computeTrend(type);
+    if (!t) return `<div class="card" style="background:${bg};margin-bottom:12px"><div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:16px;margin-bottom:8px">${emoji} ${label}</div><div style="color:var(--text-soft);font-size:14px">No data yet</div></div>`;
+    const bc = borderColor(t.nextMs);
+    return `<div class="card" style="background:${bg};border-left:4px solid ${bc};margin-bottom:12px">
+      <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:16px;margin-bottom:12px">${emoji} ${label}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div><div style="color:var(--text-soft);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">All time</div><div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:18px">${t.count}</div></div>
+        <div><div style="color:var(--text-soft);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Avg interval</div><div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:18px">${fmtInterval(t.avgMs)}</div></div>
+        <div><div style="color:var(--text-soft);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Last</div><div style="font-weight:700;font-size:15px">${fmtTime(t.last.startTime)}</div></div>
+        <div><div style="color:var(--text-soft);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Next predicted</div><div style="font-weight:700;font-size:15px">${fmtNext(t.nextMs)}</div></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
 function refreshAll() {
   refreshTodayList('feed'); refreshTodayList('nappy'); refreshTodayList('sleep');
-  refreshStats(); refreshHistory(); updateColourGrid(); selectNappy(nappyType);
+  refreshStats(); refreshHistory(); refreshTrends(); updateColourGrid(); selectNappy(nappyType);
 }
 
 function exportData() {
