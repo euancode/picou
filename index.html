@@ -337,7 +337,10 @@
     <div class="section-title"><span>📊</span>Summary</div>
     <div class="stats-grid" id="statsGrid"></div>
     <div class="divider"></div>
-    <div class="section-title" style="font-size:17px; margin-bottom:8px">Log</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div class="section-title" style="font-size:17px; margin-bottom:0">Log</div>
+      <button id="sortToggleBtn" onclick="toggleSortOrder()" style="background:none;border:1px solid var(--border);border-radius:50px;padding:5px 12px;font-size:12px;font-weight:700;color:var(--text-soft);cursor:pointer;font-family:'Nunito',sans-serif">↑ Oldest first</button>
+    </div>
     <button class="add-past-btn" onclick="openRetroModal('feed')">+ Add past entry</button>
     <div style="height:10px"></div>
     <div class="filter-tabs">
@@ -531,6 +534,7 @@ let feedSide = 'left';
 let nappyType = 'pee';
 let nappyColour = '';
 let historyFilter = 'all';
+let sortAsc = true;
 let feedTimerInterval = null;
 let sleepTimerInterval = null;
 let editingLogId = null;
@@ -743,11 +747,19 @@ function setFilter(f, el) {
   refreshHistory();
 }
 
+function toggleSortOrder() {
+  sortAsc = !sortAsc;
+  const btn = document.getElementById('sortToggleBtn');
+  if (btn) btn.textContent = sortAsc ? '↑ Oldest first' : '↓ Newest first';
+  refreshHistory();
+}
+
 function refreshHistory() {
   refreshStats();
   const list = document.getElementById('historyList');
-  const filtered = historyFilter === 'all' ? state.logs : state.logs.filter(l => l.type === historyFilter);
+  let filtered = historyFilter === 'all' ? state.logs : state.logs.filter(l => l.type === historyFilter);
   if (!filtered.length) { list.innerHTML = '<div class="empty-state"><span class="empty-emoji">📭</span>No entries yet</div>'; return; }
+  if (sortAsc) filtered = [...filtered].reverse();
   list.innerHTML = filtered.map(log => renderHistoryItem(log)).join('');
 }
 
@@ -768,7 +780,7 @@ function renderHistoryItem(log) {
     icon = '😴'; title = 'Sleep';
     detail = log.duration ? formatDuration(log.duration) : 'In progress';
   }
-  const pastBadge = log.retro ? ' <span style="font-size:10px;background:var(--border);padding:2px 7px;border-radius:10px;color:var(--text-soft);font-weight:700;vertical-align:middle">past</span>' : '';
+  const pastBadge = (log.retro && log.startTime < Date.now()) ? ' <span style="font-size:10px;background:var(--border);padding:2px 7px;border-radius:10px;color:var(--text-soft);font-weight:700;vertical-align:middle">past</span>' : '';
   return `
     <div class="history-item">
       <div class="history-icon ${log.type}">${icon}</div>
