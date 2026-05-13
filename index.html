@@ -347,6 +347,7 @@
     <div id="historyList"></div>
     <div class="divider"></div>
     <div class="section-title" style="font-size:17px; margin-bottom:12px">⚙️ Data</div>
+    <button class="data-btn" onclick="openTextImportModal()"><span class="d-icon">📋</span> Paste Text Import</button>
     <button class="data-btn" onclick="openEmailModal()"><span class="d-icon">📧</span> Email Log</button>
     <button class="data-btn" onclick="exportData()"><span class="d-icon">⬆️</span> Export Data (JSON)</button>
     <button class="data-btn" onclick="document.getElementById('fileInput').click()"><span class="d-icon">⬇️</span> Import Data (JSON)</button>
@@ -473,6 +474,32 @@
         </div>
       </div>
       <button class="retro-save-btn" onclick="saveRetroEntry()">Save Entry</button>
+    </div>
+  </div>
+</div>
+
+<!-- TEXT IMPORT MODAL -->
+<div class="modal-overlay" id="textImportModal" onclick="handleTextImportOverlayClick(event)">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <span class="modal-title">📋 Paste Text Import</span>
+      <button class="modal-close" onclick="closeTextImportModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:var(--cream);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:14px;font-size:12px;font-weight:600;color:var(--text-soft);line-height:1.8">
+        <strong style="color:var(--text)">Format:</strong> <code style="background:var(--border);padding:1px 5px;border-radius:4px">DATE HH:MM TYPE [details]</code><br>
+        <strong style="color:var(--text)">Date:</strong> YYYY-MM-DD <em>or</em> DD/MM/YYYY &nbsp;·&nbsp; <strong style="color:var(--text)">Time:</strong> 24-hour<br>
+        <strong style="color:var(--feed-dark)">feed</strong> [left|right|both] [mins] &nbsp;·&nbsp;
+        <strong style="color:var(--nappy-dark)">nappy</strong> [pee|poo|both] [colour]<br>
+        <strong style="color:var(--sleep-dark)">sleep</strong> [mins] &nbsp;·&nbsp; Lines starting with <code style="background:var(--border);padding:1px 5px;border-radius:4px">#</code> are ignored
+      </div>
+      <textarea class="notes-input" id="textImportArea" rows="10"
+        style="font-family:monospace;font-size:13px;margin-bottom:10px"
+        placeholder="2026-05-13 14:00 feed left 15&#10;2026-05-13 13:15 nappy poo brown&#10;2026-05-13 11:00 sleep 90&#10;2026-05-13 09:30 feed both&#10;2026-05-13 08:00 nappy pee"
+        oninput="previewTextImport()"></textarea>
+      <div id="textImportPreview" style="font-size:13px;font-weight:700;min-height:18px;margin-bottom:14px"></div>
+      <button class="retro-save-btn" onclick="importTextEntries()">✅ Import Entries</button>
     </div>
   </div>
 </div>
@@ -920,6 +947,75 @@ function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg; t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function openTextImportModal() {
+  document.getElementById('textImportArea').value = '';
+  document.getElementById('textImportPreview').textContent = '';
+  document.getElementById('textImportModal').classList.add('open');
+}
+function closeTextImportModal() { document.getElementById('textImportModal').classList.remove('open'); }
+function handleTextImportOverlayClick(e) { if (e.target === document.getElementById('textImportModal')) closeTextImportModal(); }
+
+function parseTextEntry(line) {
+  line = line.trim();
+  if (!line || line.startsWith('#')) return null;
+  const m = line.match(/^(\d{4}-\d{2}-\d{2}|\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})\s+(\d{1,2}:\d{2})\s+(\w+)(.*)/i);
+  if (!m) return null;
+  let [, dateStr, timeStr, typeRaw, rest] = m;
+  let isoDate;
+  if (/^\d{4}/.test(dateStr)) {
+    isoDate = dateStr;
+  } else {
+    const sep = dateStr.includes('/') ? '/' : '-';
+    const [d, mo, y] = dateStr.split(sep);
+    isoDate = `${y}-${mo.padStart(2,'0')}-${d.padStart(2,'0')}`;
+  }
+  const startTime = new Date(`${isoDate}T${timeStr}`).getTime();
+  if (isNaN(startTime)) return null;
+  const typeMap = { feed:'feed', f:'feed', nappy:'nappy', n:'nappy', diaper:'nappy', d:'nappy', sleep:'sleep', s:'sleep' };
+  const logType = typeMap[typeRaw.toLowerCase()];
+  if (!logType) return null;
+  const parts = rest.trim().split(/\s+/).filter(Boolean);
+  const log = { id: Date.now() + Math.random(), type: logType, startTime, retro: true };
+  if (logType === 'feed') {
+    const sideMap = { left:'left', l:'left', right:'right', r:'right', both:'both', b:'both' };
+    let i = 0;
+    log.side = sideMap[(parts[0] || '').toLowerCase()] || 'both';
+    if (sideMap[(parts[0] || '').toLowerCase()]) i = 1;
+    const dur = parseFloat(parts[i]);
+    if (!isNaN(dur) && dur > 0) { log.duration = Math.round(dur * 60); log.endTime = startTime + log.duration * 1000; }
+  } else if (logType === 'nappy') {
+    const ntMap = { pee:'pee', p:'pee', wet:'pee', poo:'poo', dirty:'poo', both:'both', b:'both', mixed:'both' };
+    log.nappyType = ntMap[(parts[0] || '').toLowerCase()] || 'pee';
+    log.colour = parts.slice(1).join(' ');
+    log.notes = '';
+  } else if (logType === 'sleep') {
+    const dur = parseFloat(parts[0]);
+    if (!isNaN(dur) && dur > 0) { log.duration = Math.round(dur * 60); log.endTime = startTime + log.duration * 1000; }
+  }
+  return log;
+}
+
+function previewTextImport() {
+  const lines = document.getElementById('textImportArea').value.split('\n');
+  const valid = lines.map(parseTextEntry).filter(Boolean).length;
+  const skipped = lines.filter(l => { const t = l.trim(); return t && !t.startsWith('#') && !parseTextEntry(l); }).length;
+  const el = document.getElementById('textImportPreview');
+  if (!document.getElementById('textImportArea').value.trim()) { el.textContent = ''; return; }
+  el.textContent = `Found ${valid} valid entr${valid === 1 ? 'y' : 'ies'}` + (skipped ? `, ${skipped} line${skipped === 1 ? '' : 's'} skipped` : '');
+  el.style.color = valid > 0 ? 'var(--sleep-dark)' : 'var(--nappy-dark)';
+}
+
+function importTextEntries() {
+  const lines = document.getElementById('textImportArea').value.split('\n');
+  const entries = lines.map(parseTextEntry).filter(Boolean);
+  if (!entries.length) { showToast('No valid entries found'); return; }
+  const existing = new Set(state.logs.map(l => l.type + ':' + l.startTime));
+  const fresh = entries.filter(e => !existing.has(e.type + ':' + e.startTime));
+  state.logs = [...state.logs, ...fresh].sort((a, b) => b.startTime - a.startTime);
+  saveState(); closeTextImportModal(); refreshAll();
+  showToast(`Added ${fresh.length} entr${fresh.length === 1 ? 'y' : 'ies'} ✅`);
 }
 
 function openEmailModal() {
