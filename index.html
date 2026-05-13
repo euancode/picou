@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Baby Tracker 🌙</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Nunito+Sans:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #FFF8F2;
+    --warm-white: #FFFCFA;
+    --feed-color: #F2A7C3;
+    --feed-dark: #D4729A;
+    --feed-bg: #FDF0F6;
+    --feed-light: #FEEAF4;
+    --sleep-color: #8BA7D4;
+    --sleep-dark: #5878B0;
+    --sleep-bg: #EFF4FC;
+    --sleep-light: #E3ECFA;
+    --nappy-color: #F5C060;
+    --nappy-dark: #D4932A;
+    --nappy-bg: #FEF7E8;
+    --nappy-light: #FEF0CE;
+    --text: #3A2E2E;
+    --text-soft: #7A6A6A;
+    --text-lighter: #A89898;
+    --border: #EEE0D8;
+    --shadow: 0 4px 24px rgba(100,60,40,0.08);
+    --shadow-sm: 0 2px 10px rgba(100,60,40,0.06);
+    --radius: 20px;
+    --radius-sm: 12px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: 'Nunito Sans', sans-serif;
+    background: var(--cream);
+    color: var(--text);
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    max-width: 480px;
+    margin: 0 auto;
+    position: relative;
+  }
+  .header {
+    background: var(--warm-white);
+    padding: 18px 20px 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: var(--shadow-sm);
+  }
+  .header-left { flex: 1; }
+  .baby-name-wrap { display: flex; align-items: center; gap: 6px; }
+  .baby-emoji { font-size: 22px; }
+  #babyNameDisplay {
+    font-family: 'Nunito', sans-serif;
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--text);
+    cursor: pointer;
+    border-bottom: 2px dashed var(--border);
+    padding-bottom: 1px;
+  }
+  #babyNameInput {
+    font-family: 'Nunito', sans-serif;
+    font-size: 20px;
+    font-weight: 800;
+    border: none;
+    border-bottom: 2px solid var(--feed-color);
+    background: transparent;
+    color: var(--text);
+    outline: none;
+    width: 180px;
+  }
+  .header-time { font-size: 13px; color: var(--text-soft); font-weight: 600; text-align: right; }
+  .header-date { font-size: 11px; color: var(--text-lighter); margin-top: 1px; }
+  .content { flex: 1; overflow-y: auto; padding: 16px 16px 100px; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+  .section-title { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 22px; margin-bottom: 16px; color: var(--text); }
+  .section-title span { font-size: 26px; margin-right: 6px; }
+  .action-btn {
+    width: 100%;
+    padding: 22px 20px;
+    border: none;
+    border-radius: var(--radius);
+    font-family: 'Nunito', sans-serif;
+    font-size: 20px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: transform 0.12s, box-shadow 0.12s, opacity 0.12s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    letter-spacing: -0.3px;
+  }
+  .action-btn:active { transform: scale(0.97); opacity: 0.9; }
+  .action-btn .btn-icon { font-size: 28px; }
+  .btn-feed { background: linear-gradient(135deg, #F7C5D8 0%, var(--feed-color) 100%); color: #7A2E52; }
+  .btn-feed-stop { background: linear-gradient(135deg, #FBDDE8 0%, #F4A0BB 100%); color: #7A2E52; }
+  .btn-sleep { background: linear-gradient(135deg, #C5D8F7 0%, var(--sleep-color) 100%); color: #1E3A6E; }
+  .btn-sleep-stop { background: linear-gradient(135deg, #DDEAFB 0%, #97B5DE 100%); color: #1E3A6E; }
+  .btn-nappy { background: linear-gradient(135deg, #FAE0A0 0%, var(--nappy-color) 100%); color: #7A4E00; }
+  .active-indicator {
+    background: var(--warm-white);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    margin-bottom: 12px;
+    border: 2px solid;
+    box-shadow: var(--shadow-sm);
+    display: none;
+    animation: slideDown 0.3s ease;
+  }
+  .active-indicator.show { display: block; }
+  @keyframes slideDown { from { opacity:0; transform: translateY(-8px); } to { opacity:1; transform:none; } }
+  .active-indicator.feed { border-color: var(--feed-color); background: var(--feed-light); }
+  .active-indicator.sleep { border-color: var(--sleep-color); background: var(--sleep-light); }
+  .active-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; color: var(--text-soft); }
+  .active-timer { font-family: 'Nunito', sans-serif; font-size: 48px; font-weight: 900; letter-spacing: -2px; line-height: 1; }
+  .active-timer.feed-timer { color: var(--feed-dark); }
+  .active-timer.sleep-timer { color: var(--sleep-dark); }
+  .active-detail { font-size: 14px; color: var(--text-soft); margin-top: 4px; font-weight: 600; }
+  .sub-options { display: none; margin-bottom: 12px; animation: slideDown 0.3s ease; }
+  .sub-options.show { display: block; }
+  .option-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-soft); margin-bottom: 8px; margin-top: 14px; }
+  .toggle-group { display: flex; gap: 8px; }
+  .toggle-btn {
+    flex: 1;
+    padding: 14px 10px;
+    border: 2.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--warm-white);
+    font-family: 'Nunito', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-soft);
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: center;
+  }
+  .toggle-btn.selected-feed { border-color: var(--feed-color); background: var(--feed-light); color: var(--feed-dark); }
+  .toggle-btn.selected-nappy { border-color: var(--nappy-color); background: var(--nappy-light); color: var(--nappy-dark); }
+  .toggle-btn.selected-sleep { border-color: var(--sleep-color); background: var(--sleep-light); color: var(--sleep-dark); }
+  .colour-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+  .colour-chip { padding: 10px 16px; border-radius: 50px; border: 2.5px solid transparent; font-family: 'Nunito', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+  .colour-chip.selected { border-color: var(--text); transform: scale(1.05); }
+  .card { background: var(--warm-white); border-radius: var(--radius); padding: 18px; margin-bottom: 12px; box-shadow: var(--shadow-sm); border: 1px solid var(--border); }
+  .history-item { background: var(--warm-white); border-radius: var(--radius-sm); padding: 14px 16px; margin-bottom: 8px; border: 1px solid var(--border); display: flex; align-items: flex-start; gap: 12px; animation: slideDown 0.25s ease; }
+  .history-icon { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+  .history-icon.feed { background: var(--feed-bg); }
+  .history-icon.sleep { background: var(--sleep-bg); }
+  .history-icon.nappy { background: var(--nappy-bg); }
+  .history-text { flex: 1; }
+  .history-type { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 15px; color: var(--text); }
+  .history-detail { font-size: 13px; color: var(--text-soft); margin-top: 2px; font-weight: 600; }
+  .history-time { font-size: 12px; color: var(--text-lighter); font-weight: 600; text-align: right; flex-shrink: 0; }
+  .history-delete { background: none; border: none; font-size: 18px; cursor: pointer; opacity: 0.35; transition: opacity 0.15s; padding: 0 0 0 8px; line-height: 1; }
+  .history-delete:hover { opacity: 0.8; }
+  .filter-tabs { display: flex; gap: 6px; margin-bottom: 14px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+  .filter-tabs::-webkit-scrollbar { display: none; }
+  .filter-tab { padding: 8px 16px; border-radius: 50px; border: 2px solid var(--border); background: var(--warm-white); font-family: 'Nunito', sans-serif; font-size: 13px; font-weight: 700; color: var(--text-soft); cursor: pointer; white-space: nowrap; transition: all 0.15s; }
+  .filter-tab.active-tab { background: var(--text); color: white; border-color: var(--text); }
+  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+  .stat-card { border-radius: var(--radius-sm); padding: 14px; text-align: center; }
+  .stat-card.feed { background: var(--feed-bg); }
+  .stat-card.sleep { background: var(--sleep-bg); }
+  .stat-card.nappy { background: var(--nappy-bg); }
+  .stat-num { font-family: 'Nunito', sans-serif; font-size: 32px; font-weight: 900; line-height: 1; }
+  .stat-card.feed .stat-num { color: var(--feed-dark); }
+  .stat-card.sleep .stat-num { color: var(--sleep-dark); }
+  .stat-card.nappy .stat-num { color: var(--nappy-dark); }
+  .stat-label { font-size: 12px; font-weight: 700; color: var(--text-soft); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .notes-input { width: 100%; padding: 12px 14px; border: 2px solid var(--border); border-radius: var(--radius-sm); font-family: 'Nunito Sans', sans-serif; font-size: 15px; color: var(--text); background: var(--warm-white); outline: none; resize: none; transition: border-color 0.15s; }
+  .notes-input:focus { border-color: var(--nappy-color); }
+  .bottom-nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; background: var(--warm-white); border-top: 1px solid var(--border); display: flex; padding: 8px 8px 20px; gap: 4px; z-index: 100; box-shadow: 0 -4px 24px rgba(100,60,40,0.08); }
+  .nav-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 10px 4px 6px; border: none; background: transparent; cursor: pointer; border-radius: var(--radius-sm); transition: background 0.15s; position: relative; }
+  .nav-btn:active { background: var(--cream); }
+  .nav-icon { font-size: 24px; transition: transform 0.2s; }
+  .nav-label { font-family: 'Nunito', sans-serif; font-size: 11px; font-weight: 700; color: var(--text-lighter); letter-spacing: 0.3px; transition: color 0.15s; }
+  .nav-btn.active .nav-icon { transform: scale(1.15); }
+  .nav-btn.active .nav-label { color: var(--text); }
+  .nav-btn.active-feed .nav-label { color: var(--feed-dark); }
+  .nav-btn.active-sleep .nav-label { color: var(--sleep-dark); }
+  .nav-btn.active-nappy .nav-label { color: var(--nappy-dark); }
+  .nav-dot { position: absolute; top: 6px; right: 18px; width: 8px; height: 8px; border-radius: 50%; display: none; }
+  .nav-dot.show { display: block; }
+  .nav-dot.feed { background: var(--feed-color); }
+  .nav-dot.sleep { background: var(--sleep-color); }
+  .data-btn { width: 100%; padding: 16px; border: 2px solid var(--border); border-radius: var(--radius-sm); background: var(--warm-white); font-family: 'Nunito', sans-serif; font-size: 16px; font-weight: 700; color: var(--text); cursor: pointer; display: flex; align-items: center; gap: 10px; margin-bottom: 10px; transition: all 0.15s; }
+  .data-btn:active { background: var(--cream); }
+  .data-btn .d-icon { font-size: 22px; }
+  .data-btn.danger { border-color: #F4A0A0; color: #C0392B; }
+  .data-btn.danger:active { background: #FDF0F0; }
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--text-lighter); font-weight: 600; font-size: 15px; }
+  .empty-emoji { font-size: 48px; display: block; margin-bottom: 10px; }
+  .divider { height: 1px; background: var(--border); margin: 16px 0; }
+  .toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(20px); background: #3A2E2E; color: white; padding: 12px 24px; border-radius: 50px; font-family: 'Nunito', sans-serif; font-size: 14px; font-weight: 700; opacity: 0; transition: all 0.3s; pointer-events: none; z-index: 999; white-space: nowrap; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #fileInput { display: none; }
+  .modal-overlay { position: fixed; inset: 0; background: rgba(58,46,46,0.45); z-index: 200; display: flex; align-items: flex-end; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.25s; }
+  .modal-overlay.open { opacity: 1; pointer-events: auto; }
+  .modal-sheet { background: var(--warm-white); width: 100%; max-width: 480px; border-radius: 24px 24px 0 0; padding: 0 0 40px; max-height: 92dvh; overflow-y: auto; transform: translateY(40px); transition: transform 0.3s cubic-bezier(0.34,1.36,0.64,1); box-shadow: 0 -8px 40px rgba(100,60,40,0.14); }
+  .modal-overlay.open .modal-sheet { transform: translateY(0); }
+  .modal-handle { width: 40px; height: 4px; background: var(--border); border-radius: 2px; margin: 12px auto 0; }
+  .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px 12px; border-bottom: 1px solid var(--border); }
+  .modal-title { font-family: 'Nunito', sans-serif; font-size: 18px; font-weight: 800; }
+  .modal-close { background: var(--cream); border: none; width: 32px; height: 32px; border-radius: 50%; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text-soft); }
+  .modal-body { padding: 16px 20px; }
+  .retro-type-tabs { display: flex; gap: 8px; margin-bottom: 18px; }
+  .retro-type-tab { flex: 1; padding: 12px 6px; border: 2.5px solid var(--border); border-radius: var(--radius-sm); background: var(--warm-white); font-family: 'Nunito', sans-serif; font-size: 14px; font-weight: 700; color: var(--text-soft); cursor: pointer; text-align: center; transition: all 0.15s; }
+  .retro-type-tab.sel-feed { border-color: var(--feed-color); background: var(--feed-light); color: var(--feed-dark); }
+  .retro-type-tab.sel-nappy { border-color: var(--nappy-color); background: var(--nappy-light); color: var(--nappy-dark); }
+  .retro-type-tab.sel-sleep { border-color: var(--sleep-color); background: var(--sleep-light); color: var(--sleep-dark); }
+  .retro-fields { display: none; }
+  .retro-fields.show { display: block; }
+  .field-row { display: flex; gap: 10px; margin-bottom: 14px; }
+  .field-col { flex: 1; }
+  .field-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-soft); margin-bottom: 6px; }
+  .field-input { width: 100%; padding: 12px 12px; border: 2px solid var(--border); border-radius: var(--radius-sm); font-family: 'Nunito Sans', sans-serif; font-size: 15px; color: var(--text); background: var(--cream); outline: none; transition: border-color 0.15s; appearance: none; -webkit-appearance: none; }
+  .field-input:focus { border-color: var(--feed-color); }
+  select.field-input { cursor: pointer; }
+  .retro-save-btn { width: 100%; padding: 18px; border: none; border-radius: var(--radius); font-family: 'Nunito', sans-serif; font-size: 18px; font-weight: 800; cursor: pointer; background: linear-gradient(135deg, #C8E6C9 0%, #81C784 100%); color: #1B5E20; box-shadow: var(--shadow); transition: transform 0.12s, opacity 0.12s; margin-top: 6px; }
+  .retro-save-btn:active { transform: scale(0.97); opacity: 0.9; }
+  .add-past-btn { width: 100%; padding: 14px; border: 2px dashed var(--border); border-radius: var(--radius-sm); background: transparent; font-family: 'Nunito', sans-serif; font-size: 15px; font-weight: 700; color: var(--text-soft); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 6px; transition: all 0.15s; }
+  .add-past-btn:active { background: var(--cream); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="baby-name-wrap">
+      <span class="baby-emoji">🍼</span>
+      <span id="babyNameDisplay" onclick="editName()" title="Tap to edit">Baby</span>
+      <input id="babyNameInput" type="text" style="display:none" onblur="saveName()" onkeydown="if(event.key==='Enter')saveName()" maxlength="20">
+    </div>
+  </div>
+  <div class="header-time">
+    <div id="clockDisplay"></div>
+    <div class="header-date" id="dateDisplay"></div>
+  </div>
+</div>
+
+<div class="content">
+
+  <!-- FEED PANEL -->
+  <div class="panel active" id="panel-feed">
+    <div class="section-title"><span>🤱</span>Breastfeeding</div>
+    <div class="active-indicator feed" id="feedActiveCard">
+      <div class="active-label">⏱ Feeding in progress</div>
+      <div class="active-timer feed-timer" id="feedTimerDisplay">00:00</div>
+      <div class="active-detail" id="feedActiveDetail">–</div>
+    </div>
+    <button class="action-btn btn-feed" id="startFeedBtn" onclick="startFeed()">
+      <span class="btn-icon">🤱</span> Start Feed
+    </button>
+    <button class="action-btn btn-feed-stop" id="stopFeedBtn" onclick="stopFeed()" style="display:none">
+      <span class="btn-icon">⏹</span> Stop Feed
+    </button>
+    <div class="sub-options" id="feedOptions">
+      <div class="option-label">Which side?</div>
+      <div class="toggle-group">
+        <button class="toggle-btn" id="sideLeft" onclick="selectSide('left')">👈 Left</button>
+        <button class="toggle-btn" id="sideBoth" onclick="selectSide('both')">🔄 Both</button>
+        <button class="toggle-btn" id="sideRight" onclick="selectSide('right')">👉 Right</button>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="section-title" style="font-size:17px; margin-bottom:8px">📋 Today's Feeds</div>
+    <button class="add-past-btn" onclick="openRetroModal('feed')">+ Add past feed</button>
+    <div style="height:8px"></div>
+    <div id="feedTodayList"></div>
+  </div>
+
+  <!-- NAPPY PANEL -->
+  <div class="panel" id="panel-nappy">
+    <div class="section-title"><span>🩲</span>Nappy Change</div>
+    <div class="card">
+      <div class="option-label">Type</div>
+      <div class="toggle-group" style="margin-bottom:0">
+        <button class="toggle-btn" id="nappyPee" onclick="selectNappy('pee')">💛 Pee</button>
+        <button class="toggle-btn" id="nappyPoo" onclick="selectNappy('poo')">💩 Poo</button>
+        <button class="toggle-btn" id="nappyBoth" onclick="selectNappy('both')">💛💩 Both</button>
+      </div>
+      <div id="colourSection">
+        <div class="option-label">Colour</div>
+        <div class="colour-grid" id="colourGrid"></div>
+      </div>
+      <div class="option-label">Notes (optional)</div>
+      <textarea class="notes-input" id="nappyNotes" rows="2" placeholder="Any observations…"></textarea>
+    </div>
+    <button class="action-btn btn-nappy" onclick="logNappy()">
+      <span class="btn-icon">✅</span> Log Nappy Change
+    </button>
+    <div class="divider"></div>
+    <div class="section-title" style="font-size:17px; margin-bottom:8px">📋 Today's Nappies</div>
+    <button class="add-past-btn" onclick="openRetroModal('nappy')">+ Add past nappy</button>
+    <div style="height:8px"></div>
+    <div id="nappyTodayList"></div>
+  </div>
+
+  <!-- SLEEP PANEL -->
+  <div class="panel" id="panel-sleep">
+    <div class="section-title"><span>😴</span>Sleep</div>
+    <div class="active-indicator sleep" id="sleepActiveCard">
+      <div class="active-label">💤 Sleeping now</div>
+      <div class="active-timer sleep-timer" id="sleepTimerDisplay">00:00</div>
+      <div class="active-detail" id="sleepActiveDetail">–</div>
+    </div>
+    <button class="action-btn btn-sleep" id="startSleepBtn" onclick="startSleep()">
+      <span class="btn-icon">😴</span> Baby is Sleeping
+    </button>
+    <button class="action-btn btn-sleep-stop" id="stopSleepBtn" onclick="stopSleep()" style="display:none">
+      <span class="btn-icon">☀️</span> Baby Woke Up
+    </button>
+    <div class="divider"></div>
+    <div class="section-title" style="font-size:17px; margin-bottom:8px">📋 Today's Sleeps</div>
+    <button class="add-past-btn" onclick="openRetroModal('sleep')">+ Add past sleep</button>
+    <div style="height:8px"></div>
+    <div id="sleepTodayList"></div>
+  </div>
+
+  <!-- HISTORY / DATA PANEL -->
+  <div class="panel" id="panel-history">
+    <div class="section-title"><span>📊</span>Summary</div>
+    <div class="stats-grid" id="statsGrid"></div>
+    <div class="divider"></div>
+    <div class="section-title" style="font-size:17px; margin-bottom:8px">Log</div>
+    <button class="add-past-btn" onclick="openRetroModal('feed')">+ Add past entry</button>
+    <div style="height:10px"></div>
+    <div class="filter-tabs">
+      <button class="filter-tab active-tab" onclick="setFilter('all', this)">All</button>
+      <button class="filter-tab" onclick="setFilter('feed', this)">🤱 Feeds</button>
+      <button class="filter-tab" onclick="setFilter('nappy', this)">🩲 Nappies</button>
+      <button class="filter-tab" onclick="setFilter('sleep', this)">😴 Sleeps</button>
+    </div>
+    <div id="historyList"></div>
+    <div class="divider"></div>
+    <div class="section-title" style="font-size:17px; margin-bottom:12px">⚙️ Data</div>
+    <button class="data-btn" onclick="exportData()"><span class="d-icon">⬆️</span> Export Data (JSON)</button>
+    <button class="data-btn" onclick="document.getElementById('fileInput').click()"><span class="d-icon">⬇️</span> Import Data (JSON)</button>
+    <input type="file" id="fileInput" accept=".json" onchange="importData(event)">
+    <button class="data-btn danger" onclick="clearAllData()"><span class="d-icon">🗑️</span> Clear All Data</button>
+  </div>
+
+</div>
+
+<nav class="bottom-nav">
+  <button class="nav-btn active active-feed" id="nav-feed" onclick="showPanel('feed')">
+    <span class="nav-dot feed" id="feedDot"></span>
+    <span class="nav-icon">🤱</span>
+    <span class="nav-label">Feed</span>
+  </button>
+  <button class="nav-btn" id="nav-nappy" onclick="showPanel('nappy')">
+    <span class="nav-icon">🩲</span>
+    <span class="nav-label">Nappy</span>
+  </button>
+  <button class="nav-btn" id="nav-sleep" onclick="showPanel('sleep')">
+    <span class="nav-dot sleep" id="sleepDot"></span>
+    <span class="nav-icon">😴</span>
+    <span class="nav-label">Sleep</span>
+  </button>
+  <button class="nav-btn" id="nav-history" onclick="showPanel('history')">
+    <span class="nav-icon">📊</span>
+    <span class="nav-label">Summary</span>
+  </button>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<!-- RETROSPECTIVE ENTRY MODAL -->
+<div class="modal-overlay" id="retroModal" onclick="handleOverlayClick(event)">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <span class="modal-title">✏️ Add Past Entry</span>
+      <button class="modal-close" onclick="closeRetroModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="retro-type-tabs">
+        <button class="retro-type-tab sel-feed" id="rtab-feed" onclick="setRetroType('feed')">🤱 Feed</button>
+        <button class="retro-type-tab" id="rtab-nappy" onclick="setRetroType('nappy')">🩲 Nappy</button>
+        <button class="retro-type-tab" id="rtab-sleep" onclick="setRetroType('sleep')">😴 Sleep</button>
+      </div>
+      <!-- FEED fields -->
+      <div class="retro-fields show" id="rfields-feed">
+        <div class="field-row">
+          <div class="field-col">
+            <div class="field-label">Date</div>
+            <input type="date" class="field-input" id="rf-date">
+          </div>
+          <div class="field-col">
+            <div class="field-label">Start time</div>
+            <input type="time" class="field-input" id="rf-start">
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field-col">
+            <div class="field-label">Duration (mins)</div>
+            <input type="number" class="field-input" id="rf-duration" placeholder="e.g. 15" min="1" max="120">
+          </div>
+          <div class="field-col">
+            <div class="field-label">Side</div>
+            <select class="field-input" id="rf-side">
+              <option value="left">Left</option>
+              <option value="both">Both</option>
+              <option value="right">Right</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <!-- NAPPY fields -->
+      <div class="retro-fields" id="rfields-nappy">
+        <div class="field-row">
+          <div class="field-col">
+            <div class="field-label">Date</div>
+            <input type="date" class="field-input" id="rn-date">
+          </div>
+          <div class="field-col">
+            <div class="field-label">Time</div>
+            <input type="time" class="field-input" id="rn-time">
+          </div>
+        </div>
+        <div class="field-row" style="margin-bottom:10px">
+          <div class="field-col">
+            <div class="field-label">Type</div>
+            <select class="field-input" id="rn-type" onchange="updateRetroColours()">
+              <option value="pee">Pee</option>
+              <option value="poo">Poo</option>
+              <option value="both">Both</option>
+            </select>
+          </div>
+          <div class="field-col">
+            <div class="field-label">Colour</div>
+            <select class="field-input" id="rn-colour"></select>
+          </div>
+        </div>
+        <div class="field-label">Notes (optional)</div>
+        <textarea class="field-input" id="rn-notes" rows="2" placeholder="Any observations..." style="resize:none;margin-bottom:4px"></textarea>
+      </div>
+      <!-- SLEEP fields -->
+      <div class="retro-fields" id="rfields-sleep">
+        <div class="field-row">
+          <div class="field-col">
+            <div class="field-label">Date</div>
+            <input type="date" class="field-input" id="rs-date">
+          </div>
+          <div class="field-col">
+            <div class="field-label">Sleep start</div>
+            <input type="time" class="field-input" id="rs-start">
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field-col">
+            <div class="field-label">Wake date (if different)</div>
+            <input type="date" class="field-input" id="rs-end-date">
+          </div>
+          <div class="field-col">
+            <div class="field-label">Wake time</div>
+            <input type="time" class="field-input" id="rs-end">
+          </div>
+        </div>
+      </div>
+      <button class="retro-save-btn" onclick="saveRetroEntry()">Save Entry</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let state = { babyName: 'Baby', logs: [], feedSession: null, sleepSession: null };
+let feedSide = 'left';
+let nappyType = 'pee';
+let nappyColour = '';
+let historyFilter = 'all';
+let feedTimerInterval = null;
+let sleepTimerInterval = null;
+
+const NAPPY_COLOURS = {
+  pee: [
+    { label: '🟡 Yellow', bg: '#FFF59D', text: '#827717' },
+    { label: '🟤 Dark Yellow', bg: '#FFCA28', text: '#5D4037' },
+    { label: '⬜ Clear', bg: '#F5F5F5', text: '#616161' },
+  ],
+  poo: [
+    { label: '⬛ Black', bg: '#424242', text: '#FAFAFA' },
+    { label: '💚 Green', bg: '#A5D6A7', text: '#1B5E20' },
+    { label: '🟡 Yellow', bg: '#FFF176', text: '#827717' },
+    { label: '🟤 Brown', bg: '#8D6E63', text: '#FFF8F2' },
+    { label: '🟠 Orange', bg: '#FFAB40', text: '#BF360C' },
+    { label: '🔴 Red', bg: '#EF9A9A', text: '#B71C1C' },
+    { label: '⬜ White/Grey', bg: '#EEEEEE', text: '#424242' },
+  ],
+  both: [
+    { label: '🟡 Yellow', bg: '#FFF59D', text: '#827717' },
+    { label: '💚 Green', bg: '#A5D6A7', text: '#1B5E20' },
+    { label: '🟤 Brown', bg: '#8D6E63', text: '#FFF8F2' },
+    { label: '🟠 Orange', bg: '#FFAB40', text: '#BF360C' },
+    { label: '🔴 Red', bg: '#EF9A9A', text: '#B71C1C' },
+  ],
+};
+
+function init() {
+  const saved = localStorage.getItem('babyTrackerState');
+  if (saved) { try { const p = JSON.parse(saved); state = { ...state, ...p }; } catch(e) {} }
+  document.getElementById('babyNameDisplay').textContent = state.babyName || 'Baby';
+  updateColourGrid();
+  restoreActiveSessions();
+  refreshAll();
+  updateClock();
+  setInterval(updateClock, 1000);
+}
+function saveState() { localStorage.setItem('babyTrackerState', JSON.stringify(state)); }
+
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clockDisplay').textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  document.getElementById('dateDisplay').textContent = now.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
+function editName() {
+  const d = document.getElementById('babyNameDisplay');
+  const i = document.getElementById('babyNameInput');
+  i.value = state.babyName; d.style.display = 'none'; i.style.display = 'inline'; i.focus(); i.select();
+}
+function saveName() {
+  const i = document.getElementById('babyNameInput');
+  const d = document.getElementById('babyNameDisplay');
+  const name = i.value.trim() || 'Baby';
+  state.babyName = name; d.textContent = name; d.style.display = 'inline'; i.style.display = 'none'; saveState();
+}
+
+function showPanel(name) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active','active-feed','active-sleep','active-nappy','active-history'));
+  document.getElementById('panel-' + name).classList.add('active');
+  const nb = document.getElementById('nav-' + name);
+  nb.classList.add('active', 'active-' + name);
+  if (name === 'history') refreshHistory();
+  if (name === 'feed') refreshTodayList('feed');
+  if (name === 'nappy') refreshTodayList('nappy');
+  if (name === 'sleep') refreshTodayList('sleep');
+}
+
+function selectSide(side) {
+  feedSide = side;
+  ['left','both','right'].forEach(s => {
+    document.getElementById('side' + s.charAt(0).toUpperCase() + s.slice(1)).classList.toggle('selected-feed', s === side);
+  });
+  if (state.feedSession) { state.feedSession.side = side; updateFeedDetail(); saveState(); }
+}
+
+function startFeed() {
+  if (state.feedSession) return;
+  state.feedSession = { startTime: Date.now(), side: feedSide };
+  saveState();
+  document.getElementById('startFeedBtn').style.display = 'none';
+  document.getElementById('stopFeedBtn').style.display = 'flex';
+  document.getElementById('feedOptions').classList.add('show');
+  document.getElementById('feedActiveCard').classList.add('show');
+  document.getElementById('feedDot').classList.add('show');
+  selectSide(feedSide); startFeedTimer(); updateFeedDetail();
+  showToast('Feed started 🤱');
+}
+
+function stopFeed() {
+  if (!state.feedSession) return;
+  const duration = Math.round((Date.now() - state.feedSession.startTime) / 1000);
+  state.logs.unshift({ id: Date.now(), type: 'feed', startTime: state.feedSession.startTime, endTime: Date.now(), duration, side: state.feedSession.side });
+  state.feedSession = null;
+  clearInterval(feedTimerInterval);
+  document.getElementById('startFeedBtn').style.display = 'flex';
+  document.getElementById('stopFeedBtn').style.display = 'none';
+  document.getElementById('feedOptions').classList.remove('show');
+  document.getElementById('feedActiveCard').classList.remove('show');
+  document.getElementById('feedDot').classList.remove('show');
+  document.getElementById('feedTimerDisplay').textContent = '00:00';
+  saveState(); refreshTodayList('feed');
+  showToast('Feed saved — ' + formatDuration(duration) + ' ✅');
+}
+
+function startFeedTimer() {
+  clearInterval(feedTimerInterval);
+  feedTimerInterval = setInterval(() => {
+    if (!state.feedSession) { clearInterval(feedTimerInterval); return; }
+    document.getElementById('feedTimerDisplay').textContent = formatDuration(Math.round((Date.now() - state.feedSession.startTime) / 1000));
+  }, 1000);
+}
+
+function updateFeedDetail() {
+  if (!state.feedSession) return;
+  const labels = { left: '👈 Left side', right: '👉 Right side', both: '🔄 Both sides' };
+  document.getElementById('feedActiveDetail').textContent = labels[state.feedSession.side] || '–';
+}
+
+function selectNappy(type) {
+  nappyType = type;
+  ['pee','poo','both'].forEach(t => {
+    document.getElementById('nappy' + t.charAt(0).toUpperCase() + t.slice(1)).classList.toggle('selected-nappy', t === type);
+  });
+  nappyColour = ''; updateColourGrid();
+}
+
+function updateColourGrid() {
+  const grid = document.getElementById('colourGrid');
+  const colours = NAPPY_COLOURS[nappyType] || NAPPY_COLOURS['pee'];
+  grid.innerHTML = colours.map(c => `
+    <button class="colour-chip ${nappyColour === c.label ? 'selected' : ''}"
+      style="background:${c.bg}; color:${c.text}"
+      onclick="selectColour('${c.label.replace(/'/g,"\\'")}')">
+      ${c.label}
+    </button>
+  `).join('');
+}
+
+function selectColour(label) { nappyColour = nappyColour === label ? '' : label; updateColourGrid(); }
+
+function logNappy() {
+  state.logs.unshift({ id: Date.now(), type: 'nappy', startTime: Date.now(), nappyType, colour: nappyColour, notes: document.getElementById('nappyNotes').value.trim() });
+  saveState();
+  document.getElementById('nappyNotes').value = '';
+  refreshTodayList('nappy');
+  showToast('Nappy logged ✅');
+}
+
+function startSleep() {
+  if (state.sleepSession) return;
+  state.sleepSession = { startTime: Date.now() };
+  saveState();
+  document.getElementById('startSleepBtn').style.display = 'none';
+  document.getElementById('stopSleepBtn').style.display = 'flex';
+  document.getElementById('sleepActiveCard').classList.add('show');
+  document.getElementById('sleepDot').classList.add('show');
+  document.getElementById('sleepActiveDetail').textContent = 'Started ' + new Date(state.sleepSession.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  startSleepTimer();
+  showToast('Sleep started 💤');
+}
+
+function stopSleep() {
+  if (!state.sleepSession) return;
+  const duration = Math.round((Date.now() - state.sleepSession.startTime) / 1000);
+  state.logs.unshift({ id: Date.now(), type: 'sleep', startTime: state.sleepSession.startTime, endTime: Date.now(), duration });
+  state.sleepSession = null;
+  clearInterval(sleepTimerInterval);
+  document.getElementById('startSleepBtn').style.display = 'flex';
+  document.getElementById('stopSleepBtn').style.display = 'none';
+  document.getElementById('sleepActiveCard').classList.remove('show');
+  document.getElementById('sleepDot').classList.remove('show');
+  document.getElementById('sleepTimerDisplay').textContent = '00:00';
+  saveState(); refreshTodayList('sleep');
+  showToast('Sleep saved — ' + formatDuration(duration) + ' ✅');
+}
+
+function startSleepTimer() {
+  clearInterval(sleepTimerInterval);
+  sleepTimerInterval = setInterval(() => {
+    if (!state.sleepSession) { clearInterval(sleepTimerInterval); return; }
+    document.getElementById('sleepTimerDisplay').textContent = formatDuration(Math.round((Date.now() - state.sleepSession.startTime) / 1000));
+  }, 1000);
+}
+
+function restoreActiveSessions() {
+  if (state.feedSession) {
+    document.getElementById('startFeedBtn').style.display = 'none';
+    document.getElementById('stopFeedBtn').style.display = 'flex';
+    document.getElementById('feedOptions').classList.add('show');
+    document.getElementById('feedActiveCard').classList.add('show');
+    document.getElementById('feedDot').classList.add('show');
+    feedSide = state.feedSession.side || 'left';
+    selectSide(feedSide); startFeedTimer(); updateFeedDetail();
+  }
+  if (state.sleepSession) {
+    document.getElementById('startSleepBtn').style.display = 'none';
+    document.getElementById('stopSleepBtn').style.display = 'flex';
+    document.getElementById('sleepActiveCard').classList.add('show');
+    document.getElementById('sleepDot').classList.add('show');
+    document.getElementById('sleepActiveDetail').textContent = 'Started ' + new Date(state.sleepSession.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    startSleepTimer();
+  }
+}
+
+function setFilter(f, el) {
+  historyFilter = f;
+  document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active-tab'));
+  el.classList.add('active-tab');
+  refreshHistory();
+}
+
+function refreshHistory() {
+  refreshStats();
+  const list = document.getElementById('historyList');
+  const filtered = historyFilter === 'all' ? state.logs : state.logs.filter(l => l.type === historyFilter);
+  if (!filtered.length) { list.innerHTML = '<div class="empty-state"><span class="empty-emoji">📭</span>No entries yet</div>'; return; }
+  list.innerHTML = filtered.map(log => renderHistoryItem(log)).join('');
+}
+
+function renderHistoryItem(log) {
+  const time = new Date(log.startTime);
+  const timeStr = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const dateStr = time.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
+  let icon, title, detail;
+  if (log.type === 'feed') {
+    icon = '🤱'; title = 'Feed';
+    const sides = { left: '👈 Left', right: '👉 Right', both: '🔄 Both' };
+    detail = (sides[log.side] || '') + (log.duration ? ' · ' + formatDuration(log.duration) : '');
+  } else if (log.type === 'nappy') {
+    icon = '🩲'; title = 'Nappy';
+    const types = { pee: '💛 Pee', poo: '💩 Poo', both: '💛💩 Pee & Poo' };
+    detail = (types[log.nappyType] || '') + (log.colour ? ' · ' + log.colour : '') + (log.notes ? ' · ' + log.notes : '');
+  } else if (log.type === 'sleep') {
+    icon = '😴'; title = 'Sleep';
+    detail = log.duration ? formatDuration(log.duration) : 'In progress';
+  }
+  const pastBadge = log.retro ? ' <span style="font-size:10px;background:var(--border);padding:2px 7px;border-radius:10px;color:var(--text-soft);font-weight:700;vertical-align:middle">past</span>' : '';
+  return `
+    <div class="history-item">
+      <div class="history-icon ${log.type}">${icon}</div>
+      <div class="history-text">
+        <div class="history-type">${title}${pastBadge}</div>
+        <div class="history-detail">${detail || '–'}</div>
+      </div>
+      <div>
+        <div class="history-time">${timeStr}<br><span style="font-size:11px;color:var(--text-lighter)">${dateStr}</span></div>
+        <button class="history-delete" onclick="deleteLog(${log.id})">✕</button>
+      </div>
+    </div>
+  `;
+}
+
+function deleteLog(id) {
+  state.logs = state.logs.filter(l => l.id !== id);
+  saveState(); refreshHistory();
+  showToast('Entry deleted');
+}
+
+function refreshStats() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const todayTs = today.getTime();
+  const tl = state.logs.filter(l => l.startTime >= todayTs);
+  const feeds = tl.filter(l => l.type === 'feed');
+  const nappies = tl.filter(l => l.type === 'nappy');
+  const sleeps = tl.filter(l => l.type === 'sleep');
+  const sleepSecs = sleeps.reduce((a, l) => a + (l.duration || 0), 0);
+  document.getElementById('statsGrid').innerHTML = `
+    <div class="stat-card feed"><div class="stat-num">${feeds.length}</div><div class="stat-label">Feeds today</div></div>
+    <div class="stat-card nappy"><div class="stat-num">${nappies.length}</div><div class="stat-label">Nappies today</div></div>
+    <div class="stat-card sleep" style="grid-column:1/-1"><div class="stat-num">${formatDuration(sleepSecs)}</div><div class="stat-label">Sleep today</div></div>
+  `;
+}
+
+function refreshTodayList(type) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const todayTs = today.getTime();
+  const logs = state.logs.filter(l => l.type === type && l.startTime >= todayTs);
+  const el = document.getElementById(type + 'TodayList');
+  if (!logs.length) { el.innerHTML = '<div class="empty-state" style="padding:20px"><span class="empty-emoji" style="font-size:32px">📭</span>None logged yet today</div>'; return; }
+  el.innerHTML = logs.map(log => renderHistoryItem(log)).join('');
+}
+
+function refreshAll() {
+  refreshTodayList('feed'); refreshTodayList('nappy'); refreshTodayList('sleep');
+  refreshStats(); refreshHistory(); updateColourGrid(); selectNappy(nappyType);
+}
+
+function exportData() {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `baby-tracker-${new Date().toISOString().slice(0,10)}.json`; a.click();
+  URL.revokeObjectURL(url);
+  showToast('Data exported ⬆️');
+}
+
+function importData(event) {
+  const file = event.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const imported = JSON.parse(e.target.result);
+      if (!imported.logs) throw new Error();
+      const existingIds = new Set(state.logs.map(l => l.id));
+      const newLogs = imported.logs.filter(l => !existingIds.has(l.id));
+      state.logs = [...state.logs, ...newLogs].sort((a, b) => b.startTime - a.startTime);
+      if (imported.babyName) { state.babyName = imported.babyName; document.getElementById('babyNameDisplay').textContent = state.babyName; }
+      saveState(); refreshAll();
+      showToast(`Imported ${newLogs.length} entries ✅`);
+    } catch(err) { showToast('❌ Invalid file format'); }
+  };
+  reader.readAsText(file); event.target.value = '';
+}
+
+function clearAllData() {
+  if (!confirm('Clear ALL tracking data? This cannot be undone.')) return;
+  state.logs = []; state.feedSession = null; state.sleepSession = null;
+  clearInterval(feedTimerInterval); clearInterval(sleepTimerInterval);
+  document.getElementById('startFeedBtn').style.display = 'flex';
+  document.getElementById('stopFeedBtn').style.display = 'none';
+  document.getElementById('feedOptions').classList.remove('show');
+  document.getElementById('feedActiveCard').classList.remove('show');
+  document.getElementById('feedDot').classList.remove('show');
+  document.getElementById('startSleepBtn').style.display = 'flex';
+  document.getElementById('stopSleepBtn').style.display = 'none';
+  document.getElementById('sleepActiveCard').classList.remove('show');
+  document.getElementById('sleepDot').classList.remove('show');
+  saveState(); refreshAll();
+  showToast('All data cleared 🗑️');
+}
+
+let retroType = 'feed';
+const RETRO_COLOURS = {
+  pee: ['Yellow','Dark Yellow','Clear'],
+  poo: ['Black','Green','Yellow','Brown','Orange','Red','White/Grey'],
+  both: ['Yellow','Green','Brown','Orange','Red'],
+};
+
+function openRetroModal(type) {
+  retroType = type || 'feed';
+  const now = new Date();
+  const dateStr = now.toISOString().slice(0,10);
+  const timeStr = now.toTimeString().slice(0,5);
+  ['rf-date','rn-date','rs-date','rs-end-date'].forEach(id => { const el = document.getElementById(id); if (el) el.value = dateStr; });
+  ['rf-start','rn-time','rs-start','rs-end'].forEach(id => { const el = document.getElementById(id); if (el) el.value = timeStr; });
+  document.getElementById('rf-duration').value = '';
+  document.getElementById('rf-side').value = 'left';
+  document.getElementById('rn-type').value = 'pee';
+  document.getElementById('rn-notes').value = '';
+  updateRetroColours(); setRetroType(retroType);
+  document.getElementById('retroModal').classList.add('open');
+}
+function closeRetroModal() { document.getElementById('retroModal').classList.remove('open'); }
+function handleOverlayClick(e) { if (e.target === document.getElementById('retroModal')) closeRetroModal(); }
+
+function setRetroType(type) {
+  retroType = type;
+  ['feed','nappy','sleep'].forEach(t => {
+    document.getElementById('rtab-' + t).className = 'retro-type-tab' + (t === type ? ' sel-' + type : '');
+    document.getElementById('rfields-' + t).className = 'retro-fields' + (t === type ? ' show' : '');
+  });
+}
+
+function updateRetroColours() {
+  const type = document.getElementById('rn-type').value;
+  const colours = RETRO_COLOURS[type] || RETRO_COLOURS['pee'];
+  document.getElementById('rn-colour').innerHTML = '<option value="">— not recorded —</option>' + colours.map(c => `<option value="${c}">${c}</option>`).join('');
+}
+
+function saveRetroEntry() {
+  if (retroType === 'feed') {
+    const dateVal = document.getElementById('rf-date').value;
+    const timeVal = document.getElementById('rf-start').value;
+    if (!dateVal || !timeVal) { showToast('Please set a date and time'); return; }
+    const startTs = new Date(dateVal + 'T' + timeVal).getTime();
+    const durSecs = Math.round((parseFloat(document.getElementById('rf-duration').value) || 0) * 60);
+    state.logs.push({ id: Date.now() + Math.random(), type: 'feed', startTime: startTs, endTime: durSecs ? startTs + durSecs * 1000 : startTs, duration: durSecs, side: document.getElementById('rf-side').value, retro: true });
+  } else if (retroType === 'nappy') {
+    const dateVal = document.getElementById('rn-date').value;
+    const timeVal = document.getElementById('rn-time').value;
+    if (!dateVal || !timeVal) { showToast('Please set a date and time'); return; }
+    const startTs = new Date(dateVal + 'T' + timeVal).getTime();
+    state.logs.push({ id: Date.now() + Math.random(), type: 'nappy', startTime: startTs, nappyType: document.getElementById('rn-type').value, colour: document.getElementById('rn-colour').value, notes: document.getElementById('rn-notes').value.trim(), retro: true });
+  } else if (retroType === 'sleep') {
+    const dateVal = document.getElementById('rs-date').value;
+    const startTime = document.getElementById('rs-start').value;
+    if (!dateVal || !startTime) { showToast('Please set a start date and time'); return; }
+    const startTs = new Date(dateVal + 'T' + startTime).getTime();
+    const endDateVal = document.getElementById('rs-end-date').value || dateVal;
+    const endTime = document.getElementById('rs-end').value;
+    let endTs = null, durSecs = 0;
+    if (endTime) {
+      endTs = new Date(endDateVal + 'T' + endTime).getTime();
+      if (endTs <= startTs) { showToast('Wake time must be after sleep start'); return; }
+      durSecs = Math.round((endTs - startTs) / 1000);
+    }
+    state.logs.push({ id: Date.now() + Math.random(), type: 'sleep', startTime: startTs, endTime: endTs, duration: durSecs, retro: true });
+  }
+  state.logs.sort((a, b) => b.startTime - a.startTime);
+  saveState(); closeRetroModal(); refreshAll();
+  showToast('Past entry saved ✅');
+}
+
+function formatDuration(totalSeconds) {
+  if (totalSeconds < 60) return totalSeconds + 's';
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+init();
+</script>
+</body>
+</html>
