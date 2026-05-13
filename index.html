@@ -251,6 +251,7 @@
       <span class="baby-emoji">🍼</span>
       <span id="babyNameDisplay" onclick="editName()" title="Tap to edit">Baby</span>
       <input id="babyNameInput" type="text" style="display:none" onblur="saveName()" onkeydown="if(event.key==='Enter')saveName()" maxlength="20">
+      <span id="babyAgeDisplay" style="font-size:11px;color:var(--text-lighter);display:block;margin-top:1px;font-family:'Nunito Sans',sans-serif;font-weight:600"></span>
     </div>
   </div>
   <div class="header-time">
@@ -369,6 +370,11 @@
     </div>
     <div id="historyList"></div>
     <div class="divider"></div>
+    <div class="section-title" style="font-size:17px; margin-bottom:12px">👶 Baby Info</div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;background:var(--warm-white);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px">
+      <label style="font-size:14px;font-weight:700;color:var(--text-soft);flex:1">Date of birth</label>
+      <input type="date" id="birthDateInput" onchange="saveBirthDate()" style="border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-family:'Nunito Sans',sans-serif;font-size:14px;color:var(--text);background:var(--cream);max-width:160px">
+    </div>
     <div class="section-title" style="font-size:17px; margin-bottom:12px">⚙️ Data</div>
     <button class="data-btn" onclick="openTextImportModal()"><span class="d-icon">📋</span> Paste Text Import</button>
     <button class="data-btn" onclick="openEmailModal()"><span class="d-icon">📧</span> Email Log</button>
@@ -557,7 +563,7 @@
 </div>
 
 <script>
-let state = { babyName: 'Baby', logs: [], feedSession: null, sleepSession: null };
+let state = { babyName: 'Baby', birthDate: null, logs: [], feedSession: null, sleepSession: null };
 let feedSide = 'left';
 let nappyType = 'pee';
 let nappyColour = '';
@@ -595,6 +601,8 @@ function init() {
   const saved = localStorage.getItem('babyTrackerState');
   if (saved) { try { const p = JSON.parse(saved); state = { ...state, ...p }; } catch(e) {} }
   document.getElementById('babyNameDisplay').textContent = state.babyName || 'Baby';
+  if (state.birthDate) document.getElementById('birthDateInput').value = state.birthDate;
+  updateAgeDisplay();
   updateColourGrid();
   restoreActiveSessions();
   refreshAll();
@@ -619,6 +627,66 @@ function saveName() {
   const d = document.getElementById('babyNameDisplay');
   const name = i.value.trim() || 'Baby';
   state.babyName = name; d.textContent = name; d.style.display = 'inline'; i.style.display = 'none'; saveState();
+}
+
+function saveBirthDate() {
+  state.birthDate = document.getElementById('birthDateInput').value || null;
+  saveState();
+  updateAgeDisplay();
+  refreshTrends();
+}
+
+function getAgeInDays() {
+  if (!state.birthDate) return null;
+  const birth = new Date(state.birthDate);
+  birth.setHours(0,0,0,0);
+  return Math.floor((Date.now() - birth.getTime()) / 86400000);
+}
+
+function formatAge(days) {
+  if (days < 0) return null;
+  if (days < 7) return days === 1 ? '1 day old' : `${days} days old`;
+  if (days < 91) {
+    const w = Math.floor(days / 7), d = days % 7;
+    return d === 0 ? `${w}w old` : `${w}w ${d}d old`;
+  }
+  const m = Math.floor(days / 30.44), d = Math.round(days % 30.44);
+  return d === 0 ? `${m}mo old` : `${m}mo ${d}d old`;
+}
+
+function updateAgeDisplay() {
+  const el = document.getElementById('babyAgeDisplay');
+  const days = getAgeInDays();
+  el.textContent = days != null ? (formatAge(days) || '') : '';
+}
+
+function getTypicalIntervalMs(type, ageDays) {
+  if (ageDays == null) return null;
+  const h = (hours) => hours * 3600000;
+  if (type === 'feed') {
+    if (ageDays < 14)  return h(2.5);
+    if (ageDays < 28)  return h(3.0);
+    if (ageDays < 60)  return h(3.5);
+    if (ageDays < 90)  return h(4.0);
+    if (ageDays < 150) return h(4.5);
+    if (ageDays < 180) return h(5.0);
+    return h(4.0);
+  }
+  if (type === 'nappy') {
+    if (ageDays < 28)  return h(2.0);
+    if (ageDays < 90)  return h(2.5);
+    if (ageDays < 180) return h(3.0);
+    return h(3.5);
+  }
+  if (type === 'sleep') {
+    if (ageDays < 28)  return h(1.5);
+    if (ageDays < 56)  return h(2.0);
+    if (ageDays < 90)  return h(2.5);
+    if (ageDays < 120) return h(3.0);
+    if (ageDays < 180) return h(3.5);
+    return h(4.5);
+  }
+  return null;
 }
 
 function showPanel(name) {
@@ -903,15 +971,26 @@ function refreshTrends() {
   const panel = document.getElementById('trendsContent');
   if (!panel) return;
 
+  const ageDays = getAgeInDays();
+
   function computeTrend(type) {
     const logs = state.logs.filter(l => l.type === type).slice().sort((a,b) => a.startTime - b.startTime);
-    if (!logs.length) return null;
+    const typical = getTypicalIntervalMs(type, ageDays);
+    if (!logs.length) return { avgMs: null, blendedMs: typical, last: null, nextMs: null, count: 0, typical };
     const intervals = [];
     for (let i = 1; i < logs.length; i++) intervals.push(logs[i].startTime - logs[i-1].startTime);
-    const avgMs = intervals.length ? intervals.reduce((a,b) => a+b, 0) / intervals.length : null;
+    const actualAvg = intervals.length ? intervals.reduce((a,b) => a+b, 0) / intervals.length : null;
+    // Blend actual data with age-typical: weight shifts to actual as data grows (>= 8 points = 100% actual)
+    let blendedMs = actualAvg;
+    if (typical != null && actualAvg != null) {
+      const w = Math.min(intervals.length / 8, 1);
+      blendedMs = w * actualAvg + (1 - w) * typical;
+    } else if (actualAvg == null) {
+      blendedMs = typical;
+    }
     const last = logs[logs.length - 1];
-    const nextMs = avgMs != null ? last.startTime + avgMs : null;
-    return { avgMs, last, nextMs, count: logs.length };
+    const nextMs = blendedMs != null ? last.startTime + blendedMs : null;
+    return { avgMs: actualAvg, blendedMs, last, nextMs, count: logs.length, typical };
   }
 
   const now = Date.now();
@@ -928,7 +1007,7 @@ function refreshTrends() {
   }
 
   function fmtNext(ts) {
-    if (ts == null) return '<span style="color:var(--text-lighter)">Need more data</span>';
+    if (ts == null) return '<span style="color:var(--text-lighter)">No data yet</span>';
     const diff = ts - now;
     const abs = Math.abs(diff);
     const h = Math.floor(abs / 3600000);
@@ -940,8 +1019,8 @@ function refreshTrends() {
     return `${time} <span style="color:#2E9E6A;font-size:12px">(in ${rel})</span>`;
   }
 
-  function borderColor(nextMs) {
-    if (nextMs == null) return 'var(--border)';
+  function borderColor(nextMs, hasLast) {
+    if (!hasLast || nextMs == null) return 'var(--border)';
     const diff = nextMs - now;
     if (diff < 0) return '#E05252';
     if (diff < 30 * 60000) return '#D4932A';
@@ -954,17 +1033,20 @@ function refreshTrends() {
     { type: 'sleep', emoji: '😴', label: 'Sleeps',  bg: 'var(--sleep-bg)' },
   ];
 
-  panel.innerHTML = types.map(({ type, emoji, label, bg }) => {
+  const ageNote = ageDays != null ? `<div style="color:var(--text-lighter);font-size:12px;margin-bottom:16px">Predictions blend your actual data with age-typical intervals for a ${formatAge(ageDays)}. The more data you log, the less the age baseline matters.</div>` : '<div style="color:var(--text-lighter);font-size:12px;margin-bottom:16px">Add a date of birth in Summary → Baby Info to get age-adjusted predictions.</div>';
+
+  panel.innerHTML = ageNote + types.map(({ type, emoji, label, bg }) => {
     const t = computeTrend(type);
-    if (!t) return `<div class="card" style="background:${bg};margin-bottom:12px"><div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:16px;margin-bottom:8px">${emoji} ${label}</div><div style="color:var(--text-soft);font-size:14px">No data yet</div></div>`;
-    const bc = borderColor(t.nextMs);
+    const bc = borderColor(t.nextMs, !!t.last);
+    const intervalLabel = t.avgMs != null && t.blendedMs !== t.avgMs ? 'Your avg' : 'Avg interval';
     return `<div class="card" style="background:${bg};border-left:4px solid ${bc};margin-bottom:12px">
       <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:16px;margin-bottom:12px">${emoji} ${label}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div><div style="color:var(--text-soft);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">All time</div><div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:18px">${t.count}</div></div>
-        <div><div style="color:var(--text-soft);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Avg interval</div><div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:18px">${fmtInterval(t.avgMs)}</div></div>
-        <div><div style="color:var(--text-soft);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Last</div><div style="font-weight:700;font-size:15px">${fmtTime(t.last.startTime)}</div></div>
-        <div><div style="color:var(--text-soft);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Next predicted</div><div style="font-weight:700;font-size:15px">${fmtNext(t.nextMs)}</div></div>
+        <div><div style="color:var(--text-soft);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">${intervalLabel}</div><div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:18px">${fmtInterval(t.avgMs)}</div></div>
+        ${t.typical != null ? `<div><div style="color:var(--text-soft);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Age-typical</div><div style="font-weight:700;font-size:15px">${fmtInterval(t.typical)}</div></div>` : ''}
+        <div><div style="color:var(--text-soft);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Last</div><div style="font-weight:700;font-size:15px">${t.last ? fmtTime(t.last.startTime) : '–'}</div></div>
+        <div style="${t.typical != null ? '' : 'grid-column:1/-1'}"><div style="color:var(--text-soft);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Next predicted</div><div style="font-weight:700;font-size:15px">${fmtNext(t.nextMs)}</div></div>
       </div>
     </div>`;
   }).join('');
