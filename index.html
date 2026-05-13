@@ -233,6 +233,8 @@
   .retro-save-btn:active { transform: scale(0.97); opacity: 0.9; }
   .add-past-btn { width: 100%; padding: 14px; border: 2px dashed var(--border); border-radius: var(--radius-sm); background: transparent; font-family: 'Nunito', sans-serif; font-size: 15px; font-weight: 700; color: var(--text-soft); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 6px; transition: all 0.15s; }
   .add-past-btn:active { background: var(--cream); }
+  .history-edit { background: none; border: none; font-size: 15px; cursor: pointer; opacity: 0.35; transition: opacity 0.15s; padding: 0 6px 0 0; line-height: 1; }
+  .history-edit:hover { opacity: 0.8; }
 </style>
 </head>
 <body>
@@ -531,6 +533,7 @@ let nappyColour = '';
 let historyFilter = 'all';
 let feedTimerInterval = null;
 let sleepTimerInterval = null;
+let editingLogId = null;
 
 const NAPPY_COLOURS = {
   pee: [
@@ -775,12 +778,49 @@ function renderHistoryItem(log) {
         <div class="history-type">${title}${pastBadge}</div>
         <div class="history-detail">${detail || '–'}</div>
       </div>
-      <div>
+      <div style="text-align:right">
         <div class="history-time">${timeStr}<br><span style="font-size:11px;color:var(--text-lighter)">${dateStr}</span></div>
-        <button class="history-delete" onclick="deleteLog(${log.id})">✕</button>
+        <div style="display:flex;gap:0;justify-content:flex-end;margin-top:5px">
+          <button class="history-edit" onclick="editLog(${log.id})">✏️</button>
+          <button class="history-delete" onclick="deleteLog(${log.id})">✕</button>
+        </div>
       </div>
     </div>
   `;
+}
+
+function editLog(id) {
+  const log = state.logs.find(l => l.id === id);
+  if (!log) return;
+  editingLogId = id;
+  document.querySelector('#retroModal .modal-title').textContent = '✏️ Edit Entry';
+  const d = new Date(log.startTime);
+  const dateStr = d.toISOString().slice(0,10);
+  const timeStr = d.toTimeString().slice(0,5);
+  ['rf-date','rn-date','rs-date','rs-end-date'].forEach(fid => { const el = document.getElementById(fid); if (el) el.value = dateStr; });
+  ['rf-start','rn-time','rs-start','rs-end'].forEach(fid => { const el = document.getElementById(fid); if (el) el.value = ''; });
+  document.getElementById('rf-duration').value = '';
+  document.getElementById('rn-notes').value = '';
+  setRetroType(log.type);
+  if (log.type === 'feed') {
+    document.getElementById('rf-start').value = timeStr;
+    document.getElementById('rf-duration').value = log.duration ? Math.round(log.duration / 60) : '';
+    document.getElementById('rf-side').value = log.side || 'left';
+  } else if (log.type === 'nappy') {
+    document.getElementById('rn-time').value = timeStr;
+    document.getElementById('rn-type').value = log.nappyType || 'pee';
+    updateRetroColours();
+    document.getElementById('rn-colour').value = log.colour || '';
+    document.getElementById('rn-notes').value = log.notes || '';
+  } else if (log.type === 'sleep') {
+    document.getElementById('rs-start').value = timeStr;
+    if (log.endTime) {
+      const endD = new Date(log.endTime);
+      document.getElementById('rs-end-date').value = endD.toISOString().slice(0,10);
+      document.getElementById('rs-end').value = endD.toTimeString().slice(0,5);
+    }
+  }
+  document.getElementById('retroModal').classList.add('open');
 }
 
 function deleteLog(id) {
@@ -870,6 +910,8 @@ const RETRO_COLOURS = {
 };
 
 function openRetroModal(type) {
+  editingLogId = null;
+  document.querySelector('#retroModal .modal-title').textContent = '✏️ Add Past Entry';
   retroType = type || 'feed';
   const now = new Date();
   const dateStr = now.toISOString().slice(0,10);
@@ -883,7 +925,11 @@ function openRetroModal(type) {
   updateRetroColours(); setRetroType(retroType);
   document.getElementById('retroModal').classList.add('open');
 }
-function closeRetroModal() { document.getElementById('retroModal').classList.remove('open'); }
+function closeRetroModal() {
+  document.getElementById('retroModal').classList.remove('open');
+  editingLogId = null;
+  document.querySelector('#retroModal .modal-title').textContent = '✏️ Add Past Entry';
+}
 function handleOverlayClick(e) { if (e.target === document.getElementById('retroModal')) closeRetroModal(); }
 
 function setRetroType(type) {
@@ -901,19 +947,21 @@ function updateRetroColours() {
 }
 
 function saveRetroEntry() {
+  const isEditing = editingLogId !== null;
+  let entry;
   if (retroType === 'feed') {
     const dateVal = document.getElementById('rf-date').value;
     const timeVal = document.getElementById('rf-start').value;
     if (!dateVal || !timeVal) { showToast('Please set a date and time'); return; }
     const startTs = new Date(dateVal + 'T' + timeVal).getTime();
     const durSecs = Math.round((parseFloat(document.getElementById('rf-duration').value) || 0) * 60);
-    state.logs.push({ id: Date.now() + Math.random(), type: 'feed', startTime: startTs, endTime: durSecs ? startTs + durSecs * 1000 : startTs, duration: durSecs, side: document.getElementById('rf-side').value, retro: true });
+    entry = { type: 'feed', startTime: startTs, endTime: durSecs ? startTs + durSecs * 1000 : startTs, duration: durSecs, side: document.getElementById('rf-side').value, retro: true };
   } else if (retroType === 'nappy') {
     const dateVal = document.getElementById('rn-date').value;
     const timeVal = document.getElementById('rn-time').value;
     if (!dateVal || !timeVal) { showToast('Please set a date and time'); return; }
     const startTs = new Date(dateVal + 'T' + timeVal).getTime();
-    state.logs.push({ id: Date.now() + Math.random(), type: 'nappy', startTime: startTs, nappyType: document.getElementById('rn-type').value, colour: document.getElementById('rn-colour').value, notes: document.getElementById('rn-notes').value.trim(), retro: true });
+    entry = { type: 'nappy', startTime: startTs, nappyType: document.getElementById('rn-type').value, colour: document.getElementById('rn-colour').value, notes: document.getElementById('rn-notes').value.trim(), retro: true };
   } else if (retroType === 'sleep') {
     const dateVal = document.getElementById('rs-date').value;
     const startTime = document.getElementById('rs-start').value;
@@ -927,11 +975,19 @@ function saveRetroEntry() {
       if (endTs <= startTs) { showToast('Wake time must be after sleep start'); return; }
       durSecs = Math.round((endTs - startTs) / 1000);
     }
-    state.logs.push({ id: Date.now() + Math.random(), type: 'sleep', startTime: startTs, endTime: endTs, duration: durSecs, retro: true });
+    entry = { type: 'sleep', startTime: startTs, endTime: endTs, duration: durSecs, retro: true };
+  } else { return; }
+  if (isEditing) {
+    entry.id = editingLogId;
+    const idx = state.logs.findIndex(l => l.id === editingLogId);
+    if (idx !== -1) state.logs[idx] = entry;
+  } else {
+    entry.id = Date.now() + Math.random();
+    state.logs.push(entry);
   }
   state.logs.sort((a, b) => b.startTime - a.startTime);
   saveState(); closeRetroModal(); refreshAll();
-  showToast('Past entry saved ✅');
+  showToast(isEditing ? 'Entry updated ✅' : 'Past entry saved ✅');
 }
 
 function formatDuration(totalSeconds) {
