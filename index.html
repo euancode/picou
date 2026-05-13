@@ -284,7 +284,10 @@
       </div>
     </div>
     <div class="divider"></div>
-    <div class="section-title" style="font-size:17px; margin-bottom:8px">📋 Today's Feeds</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div class="section-title" style="font-size:17px; margin-bottom:0">📋 Today's Feeds</div>
+      <button class="sort-toggle-btn" onclick="toggleSortOrder()" style="background:none;border:1px solid var(--border);border-radius:50px;padding:5px 12px;font-size:12px;font-weight:700;color:var(--text-soft);cursor:pointer;font-family:'Nunito',sans-serif">↓ Newest first</button>
+    </div>
     <button class="add-past-btn" onclick="openRetroModal('feed')">+ Add past feed</button>
     <div style="height:8px"></div>
     <div id="feedTodayList"></div>
@@ -311,7 +314,10 @@
       <span class="btn-icon">✅</span> Log Nappy Change
     </button>
     <div class="divider"></div>
-    <div class="section-title" style="font-size:17px; margin-bottom:8px">📋 Today's Nappies</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div class="section-title" style="font-size:17px; margin-bottom:0">📋 Today's Nappies</div>
+      <button class="sort-toggle-btn" onclick="toggleSortOrder()" style="background:none;border:1px solid var(--border);border-radius:50px;padding:5px 12px;font-size:12px;font-weight:700;color:var(--text-soft);cursor:pointer;font-family:'Nunito',sans-serif">↓ Newest first</button>
+    </div>
     <button class="add-past-btn" onclick="openRetroModal('nappy')">+ Add past nappy</button>
     <div style="height:8px"></div>
     <div id="nappyTodayList"></div>
@@ -332,7 +338,10 @@
       <span class="btn-icon">☀️</span> Baby Woke Up
     </button>
     <div class="divider"></div>
-    <div class="section-title" style="font-size:17px; margin-bottom:8px">📋 Today's Sleeps</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div class="section-title" style="font-size:17px; margin-bottom:0">📋 Today's Sleeps</div>
+      <button class="sort-toggle-btn" onclick="toggleSortOrder()" style="background:none;border:1px solid var(--border);border-radius:50px;padding:5px 12px;font-size:12px;font-weight:700;color:var(--text-soft);cursor:pointer;font-family:'Nunito',sans-serif">↓ Newest first</button>
+    </div>
     <button class="add-past-btn" onclick="openRetroModal('sleep')">+ Add past sleep</button>
     <div style="height:8px"></div>
     <div id="sleepTodayList"></div>
@@ -345,7 +354,7 @@
     <div class="divider"></div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
       <div class="section-title" style="font-size:17px; margin-bottom:0">Log</div>
-      <button id="sortToggleBtn" onclick="toggleSortOrder()" style="background:none;border:1px solid var(--border);border-radius:50px;padding:5px 12px;font-size:12px;font-weight:700;color:var(--text-soft);cursor:pointer;font-family:'Nunito',sans-serif">↓ Newest first</button>
+      <button class="sort-toggle-btn" onclick="toggleSortOrder()" style="background:none;border:1px solid var(--border);border-radius:50px;padding:5px 12px;font-size:12px;font-weight:700;color:var(--text-soft);cursor:pointer;font-family:'Nunito',sans-serif">↓ Newest first</button>
     </div>
     <button class="add-past-btn" onclick="openRetroModal('feed')">+ Add past entry</button>
     <div style="height:10px"></div>
@@ -757,9 +766,10 @@ function setFilter(f, el) {
 
 function toggleSortOrder() {
   sortAsc = !sortAsc;
-  const btn = document.getElementById('sortToggleBtn');
-  if (btn) btn.textContent = sortAsc ? '↑ Oldest first' : '↓ Newest first';
+  const label = sortAsc ? '↑ Oldest first' : '↓ Newest first';
+  document.querySelectorAll('.sort-toggle-btn').forEach(b => b.textContent = label);
   refreshHistory();
+  refreshTodayList('feed'); refreshTodayList('nappy'); refreshTodayList('sleep');
 }
 
 function refreshHistory() {
@@ -865,9 +875,10 @@ function refreshStats() {
 function refreshTodayList(type) {
   const today = new Date(); today.setHours(0,0,0,0);
   const todayTs = today.getTime();
-  const logs = state.logs.filter(l => l.type === type && l.startTime >= todayTs);
+  let logs = state.logs.filter(l => l.type === type && l.startTime >= todayTs);
   const el = document.getElementById(type + 'TodayList');
   if (!logs.length) { el.innerHTML = '<div class="empty-state" style="padding:20px"><span class="empty-emoji" style="font-size:32px">📭</span>None logged yet today</div>'; return; }
+  if (sortAsc) logs = [...logs].reverse();
   el.innerHTML = logs.map(log => renderHistoryItem(log)).join('');
 }
 
