@@ -347,6 +347,7 @@
     <div id="historyList"></div>
     <div class="divider"></div>
     <div class="section-title" style="font-size:17px; margin-bottom:12px">⚙️ Data</div>
+    <button class="data-btn" onclick="openEmailModal()"><span class="d-icon">📧</span> Email Log</button>
     <button class="data-btn" onclick="exportData()"><span class="d-icon">⬆️</span> Export Data (JSON)</button>
     <button class="data-btn" onclick="document.getElementById('fileInput').click()"><span class="d-icon">⬇️</span> Import Data (JSON)</button>
     <input type="file" id="fileInput" accept=".json" onchange="importData(event)">
@@ -472,6 +473,25 @@
         </div>
       </div>
       <button class="retro-save-btn" onclick="saveRetroEntry()">Save Entry</button>
+    </div>
+  </div>
+</div>
+
+<!-- EMAIL MODAL -->
+<div class="modal-overlay" id="emailModal" onclick="handleEmailOverlayClick(event)">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <span class="modal-title">📧 Email Log</span>
+      <button class="modal-close" onclick="closeEmailModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field-label">Your email address</div>
+      <input type="email" class="field-input" id="emailInput" placeholder="you@example.com" style="margin-bottom:14px">
+      <p style="font-size:13px; color:var(--text-soft); font-weight:600; margin-bottom:18px; line-height:1.6">
+        Opens your email app with the full log pre-filled. For large logs, the text is copied to your clipboard instead — just paste into the email body.
+      </p>
+      <button class="retro-save-btn" style="background:linear-gradient(135deg,#B3E5FC 0%,#4FC3F7 100%);color:#01579B" onclick="sendEmailLog()">📧 Open Email App</button>
     </div>
   </div>
 </div>
@@ -900,6 +920,80 @@ function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg; t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function openEmailModal() {
+  document.getElementById('emailInput').value = state.emailAddress || '';
+  document.getElementById('emailModal').classList.add('open');
+}
+function closeEmailModal() { document.getElementById('emailModal').classList.remove('open'); }
+function handleEmailOverlayClick(e) { if (e.target === document.getElementById('emailModal')) closeEmailModal(); }
+
+function formatLogForEmail() {
+  const name = state.babyName || 'Baby';
+  const now = new Date();
+  const lines = [];
+  lines.push(name + "'s Tracker Log");
+  lines.push('Generated: ' + now.toLocaleDateString([], { weekday:'long', day:'numeric', month:'long', year:'numeric' }) + ' at ' + now.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }));
+  lines.push('');
+  const today = new Date(); today.setHours(0,0,0,0);
+  const todayTs = today.getTime();
+  const tl = state.logs.filter(l => l.startTime >= todayTs);
+  const sleepSecs = tl.filter(l => l.type === 'sleep').reduce((a, l) => a + (l.duration || 0), 0);
+  lines.push("TODAY'S SUMMARY");
+  lines.push('Feeds:   ' + tl.filter(l => l.type === 'feed').length);
+  lines.push('Nappies: ' + tl.filter(l => l.type === 'nappy').length);
+  lines.push('Sleep:   ' + formatDuration(sleepSecs));
+  lines.push('');
+  lines.push('FULL LOG');
+  lines.push('--------');
+  if (!state.logs.length) {
+    lines.push('No entries yet.');
+  } else {
+    let currentDay = '';
+    state.logs.forEach(log => {
+      const d = new Date(log.startTime);
+      const dayStr = d.toLocaleDateString([], { weekday:'short', day:'numeric', month:'short', year:'numeric' });
+      if (dayStr !== currentDay) { currentDay = dayStr; lines.push(''); lines.push(dayStr); }
+      const timeStr = d.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+      let entry = '  ' + timeStr + '  ';
+      if (log.type === 'feed') {
+        const sides = { left: 'Left side', right: 'Right side', both: 'Both sides' };
+        entry += 'Feed — ' + (sides[log.side] || '') + (log.duration ? ' — ' + formatDuration(log.duration) : '');
+      } else if (log.type === 'nappy') {
+        const types = { pee: 'Pee', poo: 'Poo', both: 'Pee & Poo' };
+        entry += 'Nappy — ' + (types[log.nappyType] || '') + (log.colour ? ' — ' + log.colour : '') + (log.notes ? ' — ' + log.notes : '');
+      } else if (log.type === 'sleep') {
+        entry += 'Sleep — ' + (log.duration ? formatDuration(log.duration) : 'In progress');
+      }
+      if (log.retro) entry += ' (past entry)';
+      lines.push(entry);
+    });
+  }
+  return lines.join('\n');
+}
+
+function sendEmailLog() {
+  const email = document.getElementById('emailInput').value.trim();
+  if (!email) { showToast('Please enter an email address'); return; }
+  state.emailAddress = email;
+  saveState();
+  closeEmailModal();
+  const name = state.babyName || 'Baby';
+  const subject = name + "'s Tracker Log — " + new Date().toLocaleDateString([], { day:'numeric', month:'short', year:'numeric' });
+  const body = formatLogForEmail();
+  const mailtoUrl = 'mailto:' + encodeURIComponent(email) + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+  if (mailtoUrl.length <= 2000) {
+    const a = document.createElement('a'); a.href = mailtoUrl; a.click();
+    showToast('Opening email app 📧');
+  } else {
+    navigator.clipboard.writeText(body).then(() => {
+      const a = document.createElement('a');
+      a.href = 'mailto:' + encodeURIComponent(email) + '?subject=' + encodeURIComponent(subject);
+      a.click();
+      showToast('Log copied — paste into the email body 📋');
+    }).catch(() => { showToast('Log too large — use Export JSON instead'); });
+  }
 }
 
 init();
