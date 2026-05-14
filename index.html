@@ -129,6 +129,8 @@
   }
   .active-indicator.show { display: block; }
   @keyframes slideDown { from { opacity:0; transform: translateY(-8px); } to { opacity:1; transform:none; } }
+  @keyframes logFlash { 0%,100% { background: var(--warm-white); } 40% { background: #FFF9C4; border-color: #F5C060; } }
+  .log-flash { animation: logFlash 0.7s ease 2; }
   .active-indicator.feed { border-color: var(--feed-color); background: var(--feed-light); }
   .active-indicator.sleep { border-color: var(--sleep-color); background: var(--sleep-light); }
   .active-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; color: var(--text-soft); }
@@ -289,7 +291,8 @@
       <div class="section-title" style="font-size:17px; margin-bottom:0">📋 Today's Feeds</div>
       <button class="sort-toggle-btn" onclick="toggleSortOrder()" style="background:none;border:1px solid var(--border);border-radius:50px;padding:5px 12px;font-size:12px;font-weight:700;color:var(--text-soft);cursor:pointer;font-family:'Nunito',sans-serif">↓ Newest first</button>
     </div>
-    <div id="feedTodayStats" style="font-size:13px;color:var(--text-soft);margin-bottom:6px"></div>
+    <div id="feedTodayStats" style="font-size:13px;color:var(--text-soft);margin-bottom:8px"></div>
+    <div id="feedHeatmap" style="margin-bottom:10px"></div>
     <button class="add-past-btn" onclick="openRetroModal('feed')">+ Add past feed</button>
     <div style="height:8px"></div>
     <div id="feedTodayList"></div>
@@ -320,7 +323,8 @@
       <div class="section-title" style="font-size:17px; margin-bottom:0">📋 Today's Nappies</div>
       <button class="sort-toggle-btn" onclick="toggleSortOrder()" style="background:none;border:1px solid var(--border);border-radius:50px;padding:5px 12px;font-size:12px;font-weight:700;color:var(--text-soft);cursor:pointer;font-family:'Nunito',sans-serif">↓ Newest first</button>
     </div>
-    <div id="nappyTodayStats" style="font-size:13px;color:var(--text-soft);margin-bottom:6px"></div>
+    <div id="nappyTodayStats" style="font-size:13px;color:var(--text-soft);margin-bottom:8px"></div>
+    <div id="nappyHeatmap" style="margin-bottom:10px"></div>
     <button class="add-past-btn" onclick="openRetroModal('nappy')">+ Add past nappy</button>
     <div style="height:8px"></div>
     <div id="nappyTodayList"></div>
@@ -345,7 +349,8 @@
       <div class="section-title" style="font-size:17px; margin-bottom:0">📋 Today's Sleeps</div>
       <button class="sort-toggle-btn" onclick="toggleSortOrder()" style="background:none;border:1px solid var(--border);border-radius:50px;padding:5px 12px;font-size:12px;font-weight:700;color:var(--text-soft);cursor:pointer;font-family:'Nunito',sans-serif">↓ Newest first</button>
     </div>
-    <div id="sleepTodayStats" style="font-size:13px;color:var(--text-soft);margin-bottom:6px"></div>
+    <div id="sleepTodayStats" style="font-size:13px;color:var(--text-soft);margin-bottom:8px"></div>
+    <div id="sleepHeatmap" style="margin-bottom:10px"></div>
     <button class="add-past-btn" onclick="openRetroModal('sleep')">+ Add past sleep</button>
     <div style="height:8px"></div>
     <div id="sleepTodayList"></div>
@@ -492,6 +497,7 @@
       <!-- SLEEP fields -->
       <div class="retro-fields" id="rfields-sleep">
         <div class="field-row">
+          <div class="field-col">
           <div class="field-col">
             <div class="field-label">Date</div>
             <input type="date" class="field-input" id="rs-date">
@@ -767,7 +773,7 @@ function updateColourGrid() {
   grid.innerHTML = colours.map(c => `
     <button class="colour-chip ${nappyColour === c.label ? 'selected' : ''}"
       style="background:${c.bg}; color:${c.text}"
-      onclick="selectColour('${c.label.replace(/'/g,"\\'")}')">  
+      onclick="selectColour('${c.label.replace(/'/g,"\\'")}")">
       ${c.label}
     </button>
   `).join('');
@@ -841,8 +847,11 @@ function restoreActiveSessions() {
 
 function setFilter(f, el) {
   historyFilter = f;
-  document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active-tab'));
-  el.classList.add('active-tab');
+  document.querySelectorAll('.filter-tab').forEach(t => {
+    t.classList.remove('active-tab');
+    if (!el && t.getAttribute('onclick') && t.getAttribute('onclick').includes("'" + f + "'")) t.classList.add('active-tab');
+  });
+  if (el) el.classList.add('active-tab');
   refreshHistory();
 }
 
@@ -882,7 +891,7 @@ function renderHistoryItem(log) {
   }
   const pastBadge = (log.retro && log.startTime < Date.now()) ? ' <span style="font-size:10px;background:var(--border);padding:2px 7px;border-radius:10px;color:var(--text-soft);font-weight:700;vertical-align:middle">past</span>' : '';
   return `
-    <div class="history-item">
+    <div class="history-item" id="log-${log.id}">
       <div class="history-icon ${log.type}">${icon}</div>
       <div class="history-text">
         <div class="history-type">${title}${pastBadge}</div>
@@ -961,10 +970,79 @@ function refreshTodayList(type) {
   const allCount = state.logs.filter(l => l.type === type).length;
   const statsEl = document.getElementById(type + 'TodayStats');
   if (statsEl) statsEl.textContent = `Today: ${logs.length}  ·  All time: ${allCount}`;
+  renderHeatmap(type);
   const el = document.getElementById(type + 'TodayList');
   if (!logs.length) { el.innerHTML = '<div class="empty-state" style="padding:20px"><span class="empty-emoji" style="font-size:32px">📭</span>None logged yet today</div>'; return; }
   if (sortAsc) logs = [...logs].reverse();
   el.innerHTML = logs.map(log => renderHistoryItem(log)).join('');
+}
+
+function renderHeatmap(type) {
+  const el = document.getElementById(type + 'Heatmap');
+  if (!el) return;
+  const now = new Date();
+  const today = new Date(now); today.setHours(0,0,0,0);
+  const clr = {
+    feed:  { on: '#F2A7C3', dark: '#D4729A' },
+    nappy: { on: '#F5C060', dark: '#D4932A' },
+    sleep: { on: '#8BA7D4', dark: '#5878B0' },
+  }[type];
+  const cutoff = new Date(today); cutoff.setDate(cutoff.getDate() - 2);
+  const cutoffTs = cutoff.getTime();
+  const grid = Array.from({length:3}, () => Array.from({length:24}, () => []));
+  state.logs.filter(l => l.type === type && l.startTime >= cutoffTs).forEach(log => {
+    const d = new Date(log.startTime); d.setHours(0,0,0,0);
+    const di = Math.round((d.getTime() - cutoffTs) / 86400000);
+    if (di >= 0 && di < 3) grid[di][new Date(log.startTime).getHours()].push(log.id);
+  });
+  const curHour = now.getHours();
+  const dayLabels = [2,1,0].reverse().map(ago => {
+    if (ago === 0) return 'Today';
+    if (ago === 1) return 'Yest.';
+    const d = new Date(today); d.setDate(d.getDate() - ago);
+    return d.toLocaleDateString([], {weekday:'short'});
+  });
+  let html = '<div style="background:var(--warm-white);border:1px solid var(--border);border-radius:12px;padding:10px 12px">';
+  html += '<div style="font-size:10px;font-weight:700;color:var(--text-soft);text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px">72-hour activity</div>';
+  html += '<div style="display:flex;padding-left:42px;margin-bottom:3px;gap:0">';
+  ['12am','6am','12pm','6pm'].forEach(lbl => {
+    html += `<div style="flex:6;font-size:9px;color:var(--text-lighter);font-weight:600">${lbl}</div>`;
+  });
+  html += '</div>';
+  for (let d = 0; d < 3; d++) {
+    html += `<div style="display:flex;align-items:center;gap:2px;margin-bottom:2px">`;
+    html += `<div style="width:38px;font-size:10px;color:var(--text-soft);font-weight:700;flex-shrink:0">${dayLabels[d]}</div>`;
+    for (let h = 0; h < 24; h++) {
+      const ids = grid[d][h];
+      const isFuture = d === 2 && h > curHour;
+      const bg = isFuture ? 'var(--cream)' : ids.length > 1 ? clr.dark : ids.length === 1 ? clr.on : 'var(--warm-white)';
+      const border = isFuture ? 'var(--cream)' : ids.length > 0 ? clr.dark : 'var(--border)';
+      const click = ids.length ? `onclick="gotoHourEntry('${type}',${d},${h})"` : '';
+      const cur = ids.length ? 'cursor:pointer;' : '';
+      html += `<div ${click} style="${cur}flex:1;height:14px;background:${bg};border:1px solid ${border};border-radius:2px;min-width:0"></div>`;
+    }
+    html += '</div>';
+  }
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+function gotoHourEntry(type, dayIdx, hour) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const dayStart = new Date(today); dayStart.setDate(dayStart.getDate() - (2 - dayIdx));
+  const startTs = dayStart.getTime() + hour * 3600000;
+  const matches = state.logs.filter(l => l.type === type && l.startTime >= startTs && l.startTime < startTs + 3600000);
+  if (!matches.length) return;
+  setFilter(type, null);
+  showPanel('history');
+  setTimeout(() => {
+    const logEl = document.getElementById('log-' + matches[0].id);
+    if (logEl) {
+      logEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      logEl.classList.add('log-flash');
+      setTimeout(() => logEl.classList.remove('log-flash'), 1400);
+    }
+  }, 150);
 }
 
 function refreshTrends() {
@@ -980,6 +1058,7 @@ function refreshTrends() {
     const intervals = [];
     for (let i = 1; i < logs.length; i++) intervals.push(logs[i].startTime - logs[i-1].startTime);
     const actualAvg = intervals.length ? intervals.reduce((a,b) => a+b, 0) / intervals.length : null;
+    // Blend actual data with age-typical: weight shifts to actual as data grows (>= 8 points = 100% actual)
     let blendedMs = actualAvg;
     if (typical != null && actualAvg != null) {
       const w = Math.min(intervals.length / 8, 1);
@@ -1037,15 +1116,31 @@ function refreshTrends() {
   panel.innerHTML = ageNote + types.map(({ type, emoji, label, bg }) => {
     const t = computeTrend(type);
     const bc = borderColor(t.nextMs, !!t.last);
-    const intervalLabel = t.avgMs != null && t.blendedMs !== t.avgMs ? 'Your avg' : 'Avg interval';
+
+    // vs-bar comparing your avg to age-typical
+    let vsBar = '';
+    if (t.avgMs != null && t.typical != null) {
+      const ratio = t.avgMs / t.typical;
+      const pct = Math.round((ratio - 1) * 100);
+      const absP = Math.abs(pct);
+      const barColor = pct < -15 ? '#E05252' : pct > 15 ? '#2E9E6A' : '#D4932A';
+      const sign = pct > 0 ? '+' : '';
+      const note = pct < -15 ? 'more frequent than typical' : pct > 15 ? 'less frequent than typical' : 'close to age-typical';
+      vsBar = `<div style="background:var(--cream);border-radius:8px;padding:8px 10px;margin-bottom:10px;display:flex;align-items:center;gap:10px">
+        <div style="font-size:18px;font-family:'Nunito',sans-serif;font-weight:900;color:${barColor}">${sign}${pct}%</div>
+        <div style="font-size:12px;color:var(--text-soft);font-weight:600">${note}</div>
+      </div>`;
+    }
+
     return `<div class="card" style="background:${bg};border-left:4px solid ${bc};margin-bottom:12px">
-      <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:16px;margin-bottom:12px">${emoji} ${label}</div>
+      <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:16px;margin-bottom:10px">${emoji} ${label}</div>
+      ${vsBar}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div><div style="color:var(--text-soft);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">All time</div><div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:18px">${t.count}</div></div>
-        <div><div style="color:var(--text-soft);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">${intervalLabel}</div><div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:18px">${fmtInterval(t.avgMs)}</div></div>
-        ${t.typical != null ? `<div><div style="color:var(--text-soft);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Age-typical</div><div style="font-weight:700;font-size:15px">${fmtInterval(t.typical)}</div></div>` : ''}
+        <div><div style="color:var(--text-soft);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Your avg interval</div><div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:18px">${fmtInterval(t.avgMs)}</div></div>
+        ${t.typical != null ? `<div style="grid-column:1/-1"><div style="color:var(--text-soft);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Age-typical interval</div><div style="font-weight:700;font-size:15px">${fmtInterval(t.typical)}</div></div>` : ''}
         <div><div style="color:var(--text-soft);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Last</div><div style="font-weight:700;font-size:15px">${t.last ? fmtTime(t.last.startTime) : '–'}</div></div>
-        <div style="${t.typical != null ? '' : 'grid-column:1/-1'}"><div style="color:var(--text-soft);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Next predicted</div><div style="font-weight:700;font-size:15px">${fmtNext(t.nextMs)}</div></div>
+        <div><div style="color:var(--text-soft);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Next predicted</div><div style="font-weight:700;font-size:15px">${fmtNext(t.nextMs)}</div></div>
       </div>
     </div>`;
   }).join('');
