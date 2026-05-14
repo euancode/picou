@@ -393,6 +393,7 @@
       <input type="date" id="birthDateInput" onchange="saveBirthDate()" style="border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-family:'Nunito Sans',sans-serif;font-size:14px;color:var(--text);background:var(--cream);max-width:160px">
     </div>
     <div class="section-title" style="font-size:17px; margin-bottom:12px">⚙️ Data</div>
+    <button class="data-btn" onclick="checkForUpdates()"><span class="d-icon">🔄</span> Check for Updates</button>
     <button class="data-btn" onclick="openTextImportModal()"><span class="d-icon">📋</span> Paste Text Import</button>
     <button class="data-btn" onclick="openEmailModal()"><span class="d-icon">📧</span> Email Log</button>
     <button class="data-btn" onclick="exportData()"><span class="d-icon">⬆️</span> Export Data (JSON)</button>
@@ -855,7 +856,9 @@ function updateColourGrid() {
   grid.innerHTML = colours.map(c => `
     <button class="colour-chip ${nappyColour === c.label ? 'selected' : ''}"
       style="background:${c.bg}; color:${c.text}"
-      onclick="selectColour('${c.label.replace(/'/g,"\\'")}')">\n      ${c.label}\n    </button>
+      onclick="selectColour('${c.label.replace(/'/g,"\\'")}')">  
+      ${c.label}
+    </button>
   `).join('');
 }
 
@@ -1537,6 +1540,21 @@ init();
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js');
 }
+
+function checkForUpdates() {
+  if (!('serviceWorker' in navigator)) { showToast('Service worker not supported'); return; }
+  navigator.serviceWorker.getRegistration().then(reg => {
+    if (!reg) { showToast('No service worker found'); return; }
+    reg.update().then(() => {
+      if (reg.waiting) {
+        reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+        showToast('Update ready — reloading… 🔄');
+        setTimeout(() => location.reload(), 800);
+      } else {
+        showToast('Already up to date ✅');
+      }
+    });
+  });
+}
 </script>
 </body>
-</html>
