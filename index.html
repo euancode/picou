@@ -271,6 +271,13 @@
       <div class="active-label">⏱ Feeding in progress</div>
       <div class="active-timer feed-timer" id="feedTimerDisplay">00:00</div>
       <div class="active-detail" id="feedActiveDetail">–</div>
+      <div style="margin-top:6px;font-size:12px;color:var(--text-lighter);display:flex;align-items:center;gap:4px">
+        Started
+        <span id="feedStartTime" onclick="showStartTimeEdit('feed')" style="cursor:pointer;text-decoration:underline;text-underline-offset:2px;font-weight:700;color:var(--text-soft)">–</span>
+        <span style="color:var(--text-lighter);font-size:11px">(tap to adjust)</span>
+        <input type="time" id="feedStartTimeInput" style="display:none;font-size:12px;padding:2px 8px;border:1px solid var(--feed-color);border-radius:6px;color:var(--text);background:var(--warm-white);font-family:'Nunito Sans',sans-serif" onchange="applyStartTimeEdit('feed')" onblur="hideStartTimeEdit('feed')">
+      </div>
+      <div id="feedBreakdown" style="margin-top:8px;font-size:13px;font-weight:700;color:var(--feed-dark)"></div>
     </div>
     <button class="action-btn btn-feed" id="startFeedBtn" onclick="startFeed()">
       <span class="btn-icon">🤱</span> Start Feed
@@ -336,7 +343,12 @@
     <div class="active-indicator sleep" id="sleepActiveCard">
       <div class="active-label">💤 Sleeping now</div>
       <div class="active-timer sleep-timer" id="sleepTimerDisplay">00:00</div>
-      <div class="active-detail" id="sleepActiveDetail">–</div>
+      <div style="margin-top:6px;font-size:12px;color:var(--text-lighter);display:flex;align-items:center;gap:4px">
+        Started
+        <span id="sleepStartTime" onclick="showStartTimeEdit('sleep')" style="cursor:pointer;text-decoration:underline;text-underline-offset:2px;font-weight:700;color:var(--text-soft)">–</span>
+        <span style="color:var(--text-lighter);font-size:11px">(tap to adjust)</span>
+        <input type="time" id="sleepStartTimeInput" style="display:none;font-size:12px;padding:2px 8px;border:1px solid var(--sleep-color);border-radius:6px;color:var(--text);background:var(--warm-white);font-family:'Nunito Sans',sans-serif" onchange="applyStartTimeEdit('sleep')" onblur="hideStartTimeEdit('sleep')">
+      </div>
     </div>
     <button class="action-btn btn-sleep" id="startSleepBtn" onclick="startSleep()">
       <span class="btn-icon">😴</span> Baby is Sleeping
@@ -497,7 +509,6 @@
       <!-- SLEEP fields -->
       <div class="retro-fields" id="rfields-sleep">
         <div class="field-row">
-          <div class="field-col">
           <div class="field-col">
             <div class="field-label">Date</div>
             <input type="date" class="field-input" id="rs-date">
@@ -713,12 +724,23 @@ function selectSide(side) {
   ['left','both','right'].forEach(s => {
     document.getElementById('side' + s.charAt(0).toUpperCase() + s.slice(1)).classList.toggle('selected-feed', s === side);
   });
-  if (state.feedSession) { state.feedSession.side = side; updateFeedDetail(); saveState(); }
+  if (state.feedSession && state.feedSession.side !== side) {
+    const now = Date.now();
+    const segStart = state.feedSession.currentSegmentStart || state.feedSession.startTime;
+    if (!state.feedSession.segments) state.feedSession.segments = [];
+    state.feedSession.segments.push({ side: state.feedSession.side, duration: Math.round((now - segStart) / 1000) });
+    state.feedSession.currentSegmentStart = now;
+    state.feedSession.side = side;
+    updateFeedDetail(); saveState();
+  } else if (state.feedSession) {
+    state.feedSession.side = side; updateFeedDetail(); saveState();
+  }
 }
 
 function startFeed() {
   if (state.feedSession) return;
-  state.feedSession = { startTime: Date.now(), side: feedSide };
+  const now = Date.now();
+  state.feedSession = { startTime: now, side: feedSide, segments: [], currentSegmentStart: now };
   saveState();
   document.getElementById('startFeedBtn').style.display = 'none';
   document.getElementById('stopFeedBtn').style.display = 'flex';
@@ -726,13 +748,19 @@ function startFeed() {
   document.getElementById('feedActiveCard').classList.add('show');
   document.getElementById('feedDot').classList.add('show');
   selectSide(feedSide); startFeedTimer(); updateFeedDetail();
+  updateStartTimeDisplay('feed');
   showToast('Feed started 🤱');
 }
 
 function stopFeed() {
   if (!state.feedSession) return;
-  const duration = Math.round((Date.now() - state.feedSession.startTime) / 1000);
-  state.logs.unshift({ id: Date.now(), type: 'feed', startTime: state.feedSession.startTime, endTime: Date.now(), duration, side: state.feedSession.side });
+  const now = Date.now();
+  const duration = Math.round((now - state.feedSession.startTime) / 1000);
+  const segs = [...(state.feedSession.segments || [])];
+  segs.push({ side: state.feedSession.side, duration: Math.round((now - (state.feedSession.currentSegmentStart || state.feedSession.startTime)) / 1000) });
+  const entry = { id: now, type: 'feed', startTime: state.feedSession.startTime, endTime: now, duration, side: state.feedSession.side };
+  if (segs.length > 1) entry.segments = segs;
+  state.logs.unshift(entry);
   state.feedSession = null;
   clearInterval(feedTimerInterval);
   document.getElementById('startFeedBtn').style.display = 'flex';
@@ -741,6 +769,7 @@ function stopFeed() {
   document.getElementById('feedActiveCard').classList.remove('show');
   document.getElementById('feedDot').classList.remove('show');
   document.getElementById('feedTimerDisplay').textContent = '00:00';
+  document.getElementById('feedBreakdown').textContent = '';
   saveState(); refreshTodayList('feed');
   showToast('Feed saved — ' + formatDuration(duration) + ' ✅');
 }
@@ -750,6 +779,7 @@ function startFeedTimer() {
   feedTimerInterval = setInterval(() => {
     if (!state.feedSession) { clearInterval(feedTimerInterval); return; }
     document.getElementById('feedTimerDisplay').textContent = formatDuration(Math.round((Date.now() - state.feedSession.startTime) / 1000));
+    updateFeedDetail();
   }, 1000);
 }
 
@@ -757,6 +787,58 @@ function updateFeedDetail() {
   if (!state.feedSession) return;
   const labels = { left: '👈 Left side', right: '👉 Right side', both: '🔄 Both sides' };
   document.getElementById('feedActiveDetail').textContent = labels[state.feedSession.side] || '–';
+  const breakdown = document.getElementById('feedBreakdown');
+  const segs = state.feedSession.segments || [];
+  if (!segs.length) { breakdown.textContent = ''; return; }
+  const totals = {};
+  segs.forEach(s => { totals[s.side] = (totals[s.side] || 0) + s.duration; });
+  const curDur = Math.round((Date.now() - (state.feedSession.currentSegmentStart || state.feedSession.startTime)) / 1000);
+  totals[state.feedSession.side] = (totals[state.feedSession.side] || 0) + curDur;
+  const parts = [];
+  if (totals.left)  parts.push('👈 ' + formatDuration(totals.left));
+  if (totals.both)  parts.push('🔄 ' + formatDuration(totals.both));
+  if (totals.right) parts.push('👉 ' + formatDuration(totals.right));
+  breakdown.textContent = parts.join(' · ');
+}
+
+function showStartTimeEdit(type) {
+  const session = type === 'feed' ? state.feedSession : state.sleepSession;
+  if (!session) return;
+  const d = new Date(session.startTime);
+  document.getElementById(type + 'StartTimeInput').value = d.toTimeString().slice(0,5);
+  document.getElementById(type + 'StartTime').style.display = 'none';
+  const inp = document.getElementById(type + 'StartTimeInput');
+  inp.style.display = 'inline';
+  inp.focus();
+}
+
+function applyStartTimeEdit(type) {
+  const session = type === 'feed' ? state.feedSession : state.sleepSession;
+  if (!session) return;
+  const val = document.getElementById(type + 'StartTimeInput').value;
+  if (!val) { hideStartTimeEdit(type); return; }
+  const [h, m] = val.split(':').map(Number);
+  const d = new Date(); d.setHours(h, m, 0, 0);
+  let ts = d.getTime();
+  if (ts > Date.now()) ts -= 86400000;
+  session.startTime = ts;
+  if (type === 'feed' && (!session.segments || !session.segments.length)) {
+    session.currentSegmentStart = ts;
+  }
+  saveState();
+  hideStartTimeEdit(type);
+  updateStartTimeDisplay(type);
+}
+
+function hideStartTimeEdit(type) {
+  document.getElementById(type + 'StartTimeInput').style.display = 'none';
+  document.getElementById(type + 'StartTime').style.display = 'inline';
+}
+
+function updateStartTimeDisplay(type) {
+  const session = type === 'feed' ? state.feedSession : state.sleepSession;
+  const el = document.getElementById(type + 'StartTime');
+  if (el && session) el.textContent = new Date(session.startTime).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
 }
 
 function selectNappy(type) {
@@ -773,9 +855,7 @@ function updateColourGrid() {
   grid.innerHTML = colours.map(c => `
     <button class="colour-chip ${nappyColour === c.label ? 'selected' : ''}"
       style="background:${c.bg}; color:${c.text}"
-      onclick="selectColour('${c.label.replace(/'/g,"\\'")}")">
-      ${c.label}
-    </button>
+      onclick="selectColour('${c.label.replace(/'/g,"\\'")}')">\n      ${c.label}\n    </button>
   `).join('');
 }
 
@@ -797,7 +877,7 @@ function startSleep() {
   document.getElementById('stopSleepBtn').style.display = 'flex';
   document.getElementById('sleepActiveCard').classList.add('show');
   document.getElementById('sleepDot').classList.add('show');
-  document.getElementById('sleepActiveDetail').textContent = 'Started ' + new Date(state.sleepSession.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  updateStartTimeDisplay('sleep');
   startSleepTimer();
   showToast('Sleep started 💤');
 }
@@ -827,20 +907,22 @@ function startSleepTimer() {
 
 function restoreActiveSessions() {
   if (state.feedSession) {
+    if (!state.feedSession.segments) state.feedSession.segments = [];
+    if (!state.feedSession.currentSegmentStart) state.feedSession.currentSegmentStart = state.feedSession.startTime;
     document.getElementById('startFeedBtn').style.display = 'none';
     document.getElementById('stopFeedBtn').style.display = 'flex';
     document.getElementById('feedOptions').classList.add('show');
     document.getElementById('feedActiveCard').classList.add('show');
     document.getElementById('feedDot').classList.add('show');
     feedSide = state.feedSession.side || 'left';
-    selectSide(feedSide); startFeedTimer(); updateFeedDetail();
+    selectSide(feedSide); startFeedTimer(); updateFeedDetail(); updateStartTimeDisplay('feed');
   }
   if (state.sleepSession) {
     document.getElementById('startSleepBtn').style.display = 'none';
     document.getElementById('stopSleepBtn').style.display = 'flex';
     document.getElementById('sleepActiveCard').classList.add('show');
     document.getElementById('sleepDot').classList.add('show');
-    document.getElementById('sleepActiveDetail').textContent = 'Started ' + new Date(state.sleepSession.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    updateStartTimeDisplay('sleep');
     startSleepTimer();
   }
 }
@@ -879,8 +961,18 @@ function renderHistoryItem(log) {
   let icon, title, detail;
   if (log.type === 'feed') {
     icon = '🤱'; title = 'Feed';
-    const sides = { left: '👈 Left', right: '👉 Right', both: '🔄 Both' };
-    detail = (sides[log.side] || '') + (log.duration ? ' · ' + formatDuration(log.duration) : '');
+    if (log.segments && log.segments.length > 1) {
+      const totals = {};
+      log.segments.forEach(s => { totals[s.side] = (totals[s.side] || 0) + s.duration; });
+      const parts = [];
+      if (totals.left)  parts.push('👈 ' + formatDuration(totals.left));
+      if (totals.both)  parts.push('🔄 ' + formatDuration(totals.both));
+      if (totals.right) parts.push('👉 ' + formatDuration(totals.right));
+      detail = parts.join(' → ') + (log.duration ? ' · ' + formatDuration(log.duration) + ' total' : '');
+    } else {
+      const sides = { left: '👈 Left', right: '👉 Right', both: '🔄 Both' };
+      detail = (sides[log.side] || '') + (log.duration ? ' · ' + formatDuration(log.duration) : '');
+    }
   } else if (log.type === 'nappy') {
     icon = '🩲'; title = 'Nappy';
     const types = { pee: '💛 Pee', poo: '💩 Poo', both: '💛💩 Pee & Poo' };
