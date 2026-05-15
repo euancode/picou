@@ -1153,7 +1153,6 @@ function refreshTrends() {
     const intervals = [];
     for (let i = 1; i < logs.length; i++) intervals.push(logs[i].startTime - logs[i-1].startTime);
     const actualAvg = intervals.length ? intervals.reduce((a,b) => a+b, 0) / intervals.length : null;
-    // Blend actual data with age-typical: weight shifts to actual as data grows (>= 8 points = 100% actual)
     let blendedMs = actualAvg;
     if (typical != null && actualAvg != null) {
       const w = Math.min(intervals.length / 8, 1);
@@ -1212,7 +1211,6 @@ function refreshTrends() {
     const t = computeTrend(type);
     const bc = borderColor(t.nextMs, !!t.last);
 
-    // vs-bar comparing your avg to age-typical
     let vsBar = '';
     if (t.avgMs != null && t.typical != null) {
       const ratio = t.avgMs / t.typical;
@@ -1558,3 +1556,4 @@ function checkForUpdates() {
 }
 </script>
 </body>
+</html>
