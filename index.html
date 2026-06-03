@@ -5,529 +5,671 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Baby Tracker 🌙</title>
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#F2A7C3">
+<meta name="theme-color" content="#0D0D1A">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Baby">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Nunito+Sans:wght@400;600&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --cream: #FFF8F2;
-    --warm-white: #FFFCFA;
-    --feed-color: #F2A7C3;
-    --feed-dark: #D4729A;
-    --feed-bg: #FDF0F6;
-    --feed-light: #FEEAF4;
-    --sleep-color: #8BA7D4;
-    --sleep-dark: #5878B0;
-    --sleep-bg: #EFF4FC;
-    --sleep-light: #E3ECFA;
-    --nappy-color: #F5C060;
-    --nappy-dark: #D4932A;
-    --nappy-bg: #FEF7E8;
-    --nappy-light: #FEF0CE;
-    --text: #3A2E2E;
-    --text-soft: #7A6A6A;
-    --text-lighter: #A89898;
-    --border: #EEE0D8;
-    --shadow: 0 4px 24px rgba(100,60,40,0.08);
-    --shadow-sm: 0 2px 10px rgba(100,60,40,0.06);
-    --radius: 20px;
-    --radius-sm: 12px;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-  body {
-    font-family: 'Nunito Sans', sans-serif;
-    background: var(--cream);
-    color: var(--text);
-    min-height: 100vh;
-    min-height: 100dvh;
-    display: flex;
-    flex-direction: column;
-    max-width: 480px;
-    margin: 0 auto;
-    position: relative;
-  }
-  .header {
-    background: var(--warm-white);
-    padding: 18px 20px 14px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    box-shadow: var(--shadow-sm);
-  }
-  .header-left { flex: 1; }
-  .baby-name-wrap { display: flex; align-items: center; gap: 6px; }
-  .baby-emoji { font-size: 22px; }
-  #babyNameDisplay {
-    font-family: 'Nunito', sans-serif;
-    font-size: 20px;
-    font-weight: 800;
-    color: var(--text);
-    cursor: pointer;
-    border-bottom: 2px dashed var(--border);
-    padding-bottom: 1px;
-  }
-  #babyNameInput {
-    font-family: 'Nunito', sans-serif;
-    font-size: 20px;
-    font-weight: 800;
-    border: none;
-    border-bottom: 2px solid var(--feed-color);
-    background: transparent;
-    color: var(--text);
-    outline: none;
-    width: 180px;
-  }
-  .header-time { font-size: 13px; color: var(--text-soft); font-weight: 600; text-align: right; }
-  .header-date { font-size: 11px; color: var(--text-lighter); margin-top: 1px; }
-  .content { flex: 1; overflow-y: auto; padding: 16px 16px 100px; }
-  .panel { display: none; }
-  .panel.active { display: block; }
-  .section-title { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 22px; margin-bottom: 16px; color: var(--text); }
-  .section-title span { font-size: 26px; margin-right: 6px; }
-  .action-btn {
-    width: 100%;
-    padding: 22px 20px;
-    border: none;
-    border-radius: var(--radius);
-    font-family: 'Nunito', sans-serif;
-    font-size: 20px;
-    font-weight: 800;
-    cursor: pointer;
-    transition: transform 0.12s, box-shadow 0.12s, opacity 0.12s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    position: relative;
-    overflow: hidden;
-    box-shadow: var(--shadow);
-    letter-spacing: -0.3px;
-  }
-  .action-btn:active { transform: scale(0.97); opacity: 0.9; }
-  .action-btn .btn-icon { font-size: 28px; }
-  .btn-feed { background: linear-gradient(135deg, #F7C5D8 0%, var(--feed-color) 100%); color: #7A2E52; }
-  .btn-feed-stop { background: linear-gradient(135deg, #FBDDE8 0%, #F4A0BB 100%); color: #7A2E52; }
-  .btn-sleep { background: linear-gradient(135deg, #C5D8F7 0%, var(--sleep-color) 100%); color: #1E3A6E; }
-  .btn-sleep-stop { background: linear-gradient(135deg, #DDEAFB 0%, #97B5DE 100%); color: #1E3A6E; }
-  .btn-nappy { background: linear-gradient(135deg, #FAE0A0 0%, var(--nappy-color) 100%); color: #7A4E00; }
-  .active-indicator {
-    background: var(--warm-white);
-    border-radius: var(--radius);
-    padding: 16px 18px;
-    margin-bottom: 12px;
-    border: 2px solid;
-    box-shadow: var(--shadow-sm);
-    display: none;
-    animation: slideDown 0.3s ease;
-  }
-  .active-indicator.show { display: block; }
-  @keyframes slideDown { from { opacity:0; transform: translateY(-8px); } to { opacity:1; transform:none; } }
-  @keyframes logFlash { 0%,100% { background: var(--warm-white); } 40% { background: #FFF9C4; border-color: #F5C060; } }
-  .log-flash { animation: logFlash 0.7s ease 2; }
-  .active-indicator.feed { border-color: var(--feed-color); background: var(--feed-light); }
-  .active-indicator.sleep { border-color: var(--sleep-color); background: var(--sleep-light); }
-  .active-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; color: var(--text-soft); }
-  .active-timer { font-family: 'Nunito', sans-serif; font-size: 48px; font-weight: 900; letter-spacing: -2px; line-height: 1; }
-  .active-timer.feed-timer { color: var(--feed-dark); }
-  .active-timer.sleep-timer { color: var(--sleep-dark); }
-  .active-detail { font-size: 14px; color: var(--text-soft); margin-top: 4px; font-weight: 600; }
-  .sub-options { display: none; margin-bottom: 12px; animation: slideDown 0.3s ease; }
-  .sub-options.show { display: block; }
-  .option-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-soft); margin-bottom: 8px; margin-top: 14px; }
-  .toggle-group { display: flex; gap: 8px; }
-  .toggle-btn {
-    flex: 1;
-    padding: 14px 10px;
-    border: 2.5px solid var(--border);
-    border-radius: var(--radius-sm);
-    background: var(--warm-white);
-    font-family: 'Nunito', sans-serif;
-    font-size: 16px;
-    font-weight: 700;
-    color: var(--text-soft);
-    cursor: pointer;
-    transition: all 0.15s;
-    text-align: center;
-  }
-  .toggle-btn.selected-feed { border-color: var(--feed-color); background: var(--feed-light); color: var(--feed-dark); }
-  .toggle-btn.selected-nappy { border-color: var(--nappy-color); background: var(--nappy-light); color: var(--nappy-dark); }
-  .toggle-btn.selected-sleep { border-color: var(--sleep-color); background: var(--sleep-light); color: var(--sleep-dark); }
-  .colour-grid { display: flex; flex-wrap: wrap; gap: 8px; }
-  .colour-chip { padding: 10px 16px; border-radius: 50px; border: 2.5px solid transparent; font-family: 'Nunito', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
-  .colour-chip.selected { border-color: var(--text); transform: scale(1.05); }
-  .card { background: var(--warm-white); border-radius: var(--radius); padding: 18px; margin-bottom: 12px; box-shadow: var(--shadow-sm); border: 1px solid var(--border); }
-  .history-item { background: var(--warm-white); border-radius: var(--radius-sm); padding: 14px 16px; margin-bottom: 8px; border: 1px solid var(--border); display: flex; align-items: flex-start; gap: 12px; animation: slideDown 0.25s ease; }
-  .history-icon { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
-  .history-icon.feed { background: var(--feed-bg); }
-  .history-icon.sleep { background: var(--sleep-bg); }
-  .history-icon.nappy { background: var(--nappy-bg); }
-  .history-text { flex: 1; }
-  .history-type { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 15px; color: var(--text); }
-  .history-detail { font-size: 13px; color: var(--text-soft); margin-top: 2px; font-weight: 600; }
-  .history-time { font-size: 12px; color: var(--text-lighter); font-weight: 600; text-align: right; flex-shrink: 0; }
-  .history-delete { background: none; border: none; font-size: 18px; cursor: pointer; opacity: 0.35; transition: opacity 0.15s; padding: 0 0 0 8px; line-height: 1; }
-  .history-delete:hover { opacity: 0.8; }
-  .filter-tabs { display: flex; gap: 6px; margin-bottom: 14px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
-  .filter-tabs::-webkit-scrollbar { display: none; }
-  .filter-tab { padding: 8px 16px; border-radius: 50px; border: 2px solid var(--border); background: var(--warm-white); font-family: 'Nunito', sans-serif; font-size: 13px; font-weight: 700; color: var(--text-soft); cursor: pointer; white-space: nowrap; transition: all 0.15s; }
-  .filter-tab.active-tab { background: var(--text); color: white; border-color: var(--text); }
-  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
-  .stat-card { border-radius: var(--radius-sm); padding: 14px; text-align: center; }
-  .stat-card.feed { background: var(--feed-bg); }
-  .stat-card.sleep { background: var(--sleep-bg); }
-  .stat-card.nappy { background: var(--nappy-bg); }
-  .stat-num { font-family: 'Nunito', sans-serif; font-size: 32px; font-weight: 900; line-height: 1; }
-  .stat-card.feed .stat-num { color: var(--feed-dark); }
-  .stat-card.sleep .stat-num { color: var(--sleep-dark); }
-  .stat-card.nappy .stat-num { color: var(--nappy-dark); }
-  .stat-label { font-size: 12px; font-weight: 700; color: var(--text-soft); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
-  .notes-input { width: 100%; padding: 12px 14px; border: 2px solid var(--border); border-radius: var(--radius-sm); font-family: 'Nunito Sans', sans-serif; font-size: 15px; color: var(--text); background: var(--warm-white); outline: none; resize: none; transition: border-color 0.15s; }
-  .notes-input:focus { border-color: var(--nappy-color); }
-  .bottom-nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; background: var(--warm-white); border-top: 1px solid var(--border); display: flex; padding: 8px 8px 20px; gap: 4px; z-index: 100; box-shadow: 0 -4px 24px rgba(100,60,40,0.08); }
-  .nav-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 10px 4px 6px; border: none; background: transparent; cursor: pointer; border-radius: var(--radius-sm); transition: background 0.15s; position: relative; }
-  .nav-btn:active { background: var(--cream); }
-  .nav-icon { font-size: 24px; transition: transform 0.2s; }
-  .nav-label { font-family: 'Nunito', sans-serif; font-size: 11px; font-weight: 700; color: var(--text-lighter); letter-spacing: 0.3px; transition: color 0.15s; }
-  .nav-btn.active .nav-icon { transform: scale(1.15); }
-  .nav-btn.active .nav-label { color: var(--text); }
-  .nav-btn.active-feed .nav-label { color: var(--feed-dark); }
-  .nav-btn.active-sleep .nav-label { color: var(--sleep-dark); }
-  .nav-btn.active-nappy .nav-label { color: var(--nappy-dark); }
-  .nav-dot { position: absolute; top: 6px; right: 18px; width: 8px; height: 8px; border-radius: 50%; display: none; }
-  .nav-dot.show { display: block; }
-  .nav-dot.feed { background: var(--feed-color); }
-  .nav-dot.sleep { background: var(--sleep-color); }
-  .data-btn { width: 100%; padding: 16px; border: 2px solid var(--border); border-radius: var(--radius-sm); background: var(--warm-white); font-family: 'Nunito', sans-serif; font-size: 16px; font-weight: 700; color: var(--text); cursor: pointer; display: flex; align-items: center; gap: 10px; margin-bottom: 10px; transition: all 0.15s; }
-  .data-btn:active { background: var(--cream); }
-  .data-btn .d-icon { font-size: 22px; }
-  .data-btn.danger { border-color: #F4A0A0; color: #C0392B; }
-  .data-btn.danger:active { background: #FDF0F0; }
-  .empty-state { text-align: center; padding: 40px 20px; color: var(--text-lighter); font-weight: 600; font-size: 15px; }
-  .empty-emoji { font-size: 48px; display: block; margin-bottom: 10px; }
-  .divider { height: 1px; background: var(--border); margin: 16px 0; }
-  .toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(20px); background: #3A2E2E; color: white; padding: 12px 24px; border-radius: 50px; font-family: 'Nunito', sans-serif; font-size: 14px; font-weight: 700; opacity: 0; transition: all 0.3s; pointer-events: none; z-index: 999; white-space: nowrap; }
-  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-  #fileInput { display: none; }
-  .modal-overlay { position: fixed; inset: 0; background: rgba(58,46,46,0.45); z-index: 200; display: flex; align-items: flex-end; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.25s; }
-  .modal-overlay.open { opacity: 1; pointer-events: auto; }
-  .modal-sheet { background: var(--warm-white); width: 100%; max-width: 480px; border-radius: 24px 24px 0 0; padding: 0 0 40px; max-height: 92dvh; overflow-y: auto; transform: translateY(40px); transition: transform 0.3s cubic-bezier(0.34,1.36,0.64,1); box-shadow: 0 -8px 40px rgba(100,60,40,0.14); }
-  .modal-overlay.open .modal-sheet { transform: translateY(0); }
-  .modal-handle { width: 40px; height: 4px; background: var(--border); border-radius: 2px; margin: 12px auto 0; }
-  .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px 12px; border-bottom: 1px solid var(--border); }
-  .modal-title { font-family: 'Nunito', sans-serif; font-size: 18px; font-weight: 800; }
-  .modal-close { background: var(--cream); border: none; width: 32px; height: 32px; border-radius: 50%; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text-soft); }
-  .modal-body { padding: 16px 20px; }
-  .retro-type-tabs { display: flex; gap: 8px; margin-bottom: 18px; }
-  .retro-type-tab { flex: 1; padding: 12px 6px; border: 2.5px solid var(--border); border-radius: var(--radius-sm); background: var(--warm-white); font-family: 'Nunito', sans-serif; font-size: 14px; font-weight: 700; color: var(--text-soft); cursor: pointer; text-align: center; transition: all 0.15s; }
-  .retro-type-tab.sel-feed { border-color: var(--feed-color); background: var(--feed-light); color: var(--feed-dark); }
-  .retro-type-tab.sel-nappy { border-color: var(--nappy-color); background: var(--nappy-light); color: var(--nappy-dark); }
-  .retro-type-tab.sel-sleep { border-color: var(--sleep-color); background: var(--sleep-light); color: var(--sleep-dark); }
-  .retro-fields { display: none; }
-  .retro-fields.show { display: block; }
-  .field-row { display: flex; gap: 10px; margin-bottom: 14px; }
-  .field-col { flex: 1; }
-  .field-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-soft); margin-bottom: 6px; }
-  .field-input { width: 100%; padding: 12px 12px; border: 2px solid var(--border); border-radius: var(--radius-sm); font-family: 'Nunito Sans', sans-serif; font-size: 15px; color: var(--text); background: var(--cream); outline: none; transition: border-color 0.15s; appearance: none; -webkit-appearance: none; }
-  .field-input:focus { border-color: var(--feed-color); }
-  select.field-input { cursor: pointer; }
-  .retro-save-btn { width: 100%; padding: 18px; border: none; border-radius: var(--radius); font-family: 'Nunito', sans-serif; font-size: 18px; font-weight: 800; cursor: pointer; background: linear-gradient(135deg, #C8E6C9 0%, #81C784 100%); color: #1B5E20; box-shadow: var(--shadow); transition: transform 0.12s, opacity 0.12s; margin-top: 6px; }
-  .retro-save-btn:active { transform: scale(0.97); opacity: 0.9; }
-  .add-past-btn { width: 100%; padding: 14px; border: 2px dashed var(--border); border-radius: var(--radius-sm); background: transparent; font-family: 'Nunito', sans-serif; font-size: 15px; font-weight: 700; color: var(--text-soft); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 6px; transition: all 0.15s; }
-  .add-past-btn:active { background: var(--cream); }
-  .history-edit { background: none; border: none; font-size: 15px; cursor: pointer; opacity: 0.35; transition: opacity 0.15s; padding: 0 6px 0 0; line-height: 1; }
-  .history-edit:hover { opacity: 0.8; }
+:root {
+  --bg: #0D0D1A;
+  --card: #181828;
+  --card2: #1F1F35;
+  --feed: #FF6B9D;
+  --feed-dim: rgba(255,107,157,0.18);
+  --feed-border: rgba(255,107,157,0.5);
+  --sleep: #5B9CF6;
+  --sleep-dim: rgba(91,156,246,0.18);
+  --sleep-border: rgba(91,156,246,0.5);
+  --nappy: #FFB347;
+  --nappy-dim: rgba(255,179,71,0.18);
+  --nappy-border: rgba(255,179,71,0.5);
+  --awake: #22223A;
+  --text: #F0F0FF;
+  --text-soft: #8888BB;
+  --text-muted: #44445A;
+  --border: rgba(255,255,255,0.07);
+  --r: 18px;
+  --r-sm: 12px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; }
+body {
+  font-family: 'Nunito Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  max-width: 480px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
+.content { flex: 1; overflow-y: auto; padding-bottom: 80px; }
+.panel { display: none; }
+.panel.active { display: block; }
+
+.hdr {
+  padding: 14px 18px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky; top: 0; z-index: 50;
+  background: var(--bg);
+}
+.baby-name {
+  font-family: 'Nunito', sans-serif;
+  font-size: 20px; font-weight: 900;
+  cursor: pointer;
+  border-bottom: 2px dashed var(--border);
+}
+.baby-age { font-size: 11px; color: var(--text-soft); font-weight: 600; margin-top: 2px; }
+#babyNameInput {
+  font-family: 'Nunito', sans-serif;
+  font-size: 20px; font-weight: 900;
+  background: transparent; border: none;
+  border-bottom: 2px solid var(--feed);
+  color: var(--text); outline: none; width: 150px; display: none;
+}
+.clock { text-align: right; }
+.clock-time { font-family: 'Nunito', sans-serif; font-size: 26px; font-weight: 900; letter-spacing: -1px; }
+.clock-date { font-size: 11px; color: var(--text-soft); margin-top: 1px; }
+
+.status-card {
+  margin: 0 14px 10px;
+  border-radius: var(--r);
+  padding: 18px 20px;
+  border: 1.5px solid var(--border);
+  background: var(--card);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: background 0.4s, border-color 0.4s;
+  min-height: 100px;
+}
+.status-card.st-feed { background: var(--feed-dim); border-color: var(--feed-border); }
+.status-card.st-sleep { background: var(--sleep-dim); border-color: var(--sleep-border); }
+.st-left { display: flex; flex-direction: column; gap: 2px; }
+.st-emoji { font-size: 34px; line-height: 1; }
+.st-tag { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-soft); margin-top: 6px; }
+.st-name { font-family: 'Nunito', sans-serif; font-size: 18px; font-weight: 800; }
+.status-card.st-feed .st-name { color: var(--feed); }
+.status-card.st-sleep .st-name { color: var(--sleep); }
+.st-timer {
+  font-family: 'Nunito', sans-serif;
+  font-size: 48px; font-weight: 900;
+  letter-spacing: -3px; line-height: 1;
+  color: var(--text-muted);
+}
+.status-card.st-feed .st-timer { color: var(--feed); }
+.status-card.st-sleep .st-timer { color: var(--sleep); }
+.st-sub { font-size: 11px; color: var(--text-muted); font-weight: 600; text-align: right; margin-top: 4px; max-width: 140px; }
+.st-start-row { font-size: 11px; color: var(--text-muted); font-weight: 600; margin-top: 6px; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.st-start-val { text-decoration: underline; text-underline-offset: 2px; cursor: pointer; color: var(--text-soft); }
+.st-time-inp {
+  display: none; font-size: 11px; padding: 2px 6px;
+  border: 1px solid var(--sleep); border-radius: 4px;
+  background: var(--card2); color: var(--text);
+  font-family: 'Nunito Sans', sans-serif;
+}
+
+.tl-wrap {
+  margin: 0 14px 10px;
+  border-radius: var(--r);
+  background: var(--card);
+  border: 1px solid var(--border);
+  padding: 12px 14px 10px;
+}
+.tl-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 8px;
+}
+.tl-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); }
+.tl-window-btns { display: flex; gap: 4px; }
+.tl-win-btn {
+  font-size: 10px; font-weight: 700; padding: 3px 8px;
+  border-radius: 50px; border: 1px solid var(--border);
+  background: transparent; color: var(--text-soft); cursor: pointer;
+  font-family: 'Nunito', sans-serif;
+  transition: all 0.15s;
+}
+.tl-win-btn.active { background: var(--card2); color: var(--text); border-color: rgba(255,255,255,0.2); }
+#timelineCanvas {
+  width: 100%; height: 44px;
+  border-radius: 8px;
+  display: block;
+}
+.tl-ticks {
+  display: flex; justify-content: space-between;
+  margin-top: 5px;
+}
+.tl-tick { font-size: 9px; color: var(--text-muted); font-weight: 600; }
+
+.tl-legend {
+  display: flex; gap: 12px; margin-top: 8px; padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.tl-leg-item { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--text-soft); font-weight: 600; }
+.tl-leg-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+.side-row {
+  display: none;
+  gap: 8px; margin: 0 14px 10px;
+}
+.side-row.show { display: flex; }
+.side-btn {
+  flex: 1; padding: 11px 6px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--card);
+  color: var(--text-soft);
+  font-family: 'Nunito', sans-serif;
+  font-size: 13px; font-weight: 800;
+  cursor: pointer; text-align: center;
+  transition: all 0.15s;
+}
+.side-btn.sel { border-color: var(--feed); background: var(--feed-dim); color: var(--feed); }
+
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 0 14px 10px;
+}
+.act-card {
+  border-radius: var(--r);
+  padding: 20px 14px 16px;
+  border: 1.5px solid var(--border);
+  background: var(--card);
+  cursor: pointer;
+  text-align: center;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: transform 0.1s, opacity 0.1s, background 0.25s, border-color 0.25s;
+  position: relative;
+  overflow: hidden;
+}
+.act-card:active { transform: scale(0.95); opacity: 0.85; }
+.act-card.ac-feed { background: var(--feed-dim); border-color: var(--feed-border); }
+.act-card.ac-sleep { background: var(--sleep-dim); border-color: var(--sleep-border); }
+.act-icon { font-size: 36px; line-height: 1; margin-bottom: 8px; }
+.act-label { font-family: 'Nunito', sans-serif; font-size: 15px; font-weight: 800; color: var(--text); }
+.act-card.ac-feed .act-label { color: var(--feed); }
+.act-card.ac-sleep .act-label { color: var(--sleep); }
+.act-sub { font-size: 11px; color: var(--text-soft); margin-top: 4px; font-weight: 600; min-height: 14px; }
+.act-pulse {
+  position: absolute; top: 10px; right: 10px;
+  width: 8px; height: 8px; border-radius: 50%;
+  display: none;
+}
+.ac-feed .act-pulse { background: var(--feed); display: block; animation: blink 1.5s infinite; }
+.ac-sleep .act-pulse { background: var(--sleep); display: block; animation: blink 2s infinite; }
+@keyframes blink { 0%,100%{opacity:1;transform:scale(1);}50%{opacity:0.3;transform:scale(0.6);} }
+.nappy-card {
+  grid-column: 1 / -1;
+  padding: 14px;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+}
+
+.stats-row {
+  display: flex; gap: 8px; margin: 0 14px 10px;
+}
+.stat-pill {
+  flex: 1; background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r-sm); padding: 10px 6px; text-align: center;
+}
+.sp-num { font-family: 'Nunito', sans-serif; font-size: 22px; font-weight: 900; line-height: 1; }
+.sp-num.feed { color: var(--feed); }
+.sp-num.sleep { color: var(--sleep); }
+.sp-num.nappy { color: var(--nappy); }
+.sp-lbl { font-size: 9px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 3px; }
+
+.bnav {
+  position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+  width: 100%; max-width: 480px;
+  background: var(--card);
+  border-top: 1px solid var(--border);
+  display: flex; padding: 8px 0 20px; z-index: 100;
+}
+.bnav-btn {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 8px 4px 4px;
+  border: none; background: transparent; cursor: pointer;
+  border-radius: 8px; transition: background 0.15s;
+}
+.bnav-icon { font-size: 22px; transition: transform 0.2s; }
+.bnav-lbl { font-family: 'Nunito', sans-serif; font-size: 10px; font-weight: 700; color: var(--text-muted); }
+.bnav-btn.active .bnav-icon { transform: scale(1.15); }
+.bnav-btn.active .bnav-lbl { color: var(--text); }
+
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 150; display: none; }
+.overlay.show { display: block; }
+.bottom-sheet {
+  position: fixed; bottom: 0; left: 50%; transform: translateX(-50%) translateY(110%);
+  width: 100%; max-width: 480px;
+  background: var(--card2);
+  border-radius: 24px 24px 0 0;
+  padding: 0 0 40px;
+  z-index: 200;
+  transition: transform 0.3s cubic-bezier(0.34,1.36,0.64,1);
+}
+.bottom-sheet.open { transform: translateX(-50%) translateY(0); }
+.sh-handle { width: 40px; height: 4px; background: var(--border); border-radius: 2px; margin: 12px auto 0; }
+.sh-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px 10px; border-bottom: 1px solid var(--border); }
+.sh-title { font-family: 'Nunito', sans-serif; font-size: 17px; font-weight: 800; }
+.sh-close { background: var(--card); border: none; width: 30px; height: 30px; border-radius: 50%; font-size: 16px; cursor: pointer; color: var(--text-soft); display: flex; align-items: center; justify-content: center; }
+.sh-body { padding: 16px 20px; }
+.nappy-type-row { display: flex; gap: 8px; margin-bottom: 14px; }
+.nt-btn {
+  flex: 1; padding: 14px 8px;
+  border: 1.5px solid var(--border); border-radius: var(--r);
+  background: var(--card); color: var(--text-soft);
+  font-family: 'Nunito', sans-serif; font-size: 14px; font-weight: 700;
+  cursor: pointer; text-align: center; transition: all 0.15s;
+}
+.nt-btn.sel { border-color: var(--nappy-border); background: var(--nappy-dim); color: var(--nappy); }
+.sh-save-btn {
+  width: 100%; padding: 17px; border: none; border-radius: var(--r);
+  background: var(--nappy); color: #2A1800;
+  font-family: 'Nunito', sans-serif; font-size: 17px; font-weight: 800;
+  cursor: pointer; transition: transform 0.1s, opacity 0.1s;
+}
+.sh-save-btn:active { transform: scale(0.97); opacity: 0.9; }
+.colour-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.colour-chip {
+  padding: 8px 14px; border-radius: 50px;
+  border: 2px solid transparent;
+  font-family: 'Nunito', sans-serif; font-size: 12px; font-weight: 700;
+  cursor: pointer; transition: all 0.15s; white-space: nowrap;
+}
+.colour-chip.sel { border-color: white; transform: scale(1.05); }
+.notes-inp {
+  width: 100%; padding: 10px 12px; margin-bottom: 12px;
+  border: 1px solid var(--border); border-radius: var(--r-sm);
+  background: var(--card); color: var(--text);
+  font-family: 'Nunito Sans', sans-serif; font-size: 14px;
+  outline: none; resize: none;
+}
+.notes-inp::placeholder { color: var(--text-muted); }
+
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.65);
+  z-index: 300; display: flex; align-items: flex-end; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity 0.25s;
+}
+.modal-overlay.open { opacity: 1; pointer-events: auto; }
+.modal-sheet {
+  background: var(--card2); width: 100%; max-width: 480px;
+  border-radius: 24px 24px 0 0; padding: 0 0 40px;
+  max-height: 92dvh; overflow-y: auto;
+  transform: translateY(40px);
+  transition: transform 0.3s cubic-bezier(0.34,1.36,0.64,1);
+}
+.modal-overlay.open .modal-sheet { transform: translateY(0); }
+.modal-handle { width: 40px; height: 4px; background: var(--border); border-radius: 2px; margin: 12px auto 0; }
+.modal-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px 12px; border-bottom: 1px solid var(--border); }
+.modal-title { font-family: 'Nunito', sans-serif; font-size: 17px; font-weight: 800; }
+.modal-close { background: var(--card); border: none; width: 30px; height: 30px; border-radius: 50%; font-size: 16px; cursor: pointer; color: var(--text-soft); display: flex; align-items: center; justify-content: center; }
+.modal-body { padding: 16px 20px; }
+.retro-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+.rtab {
+  flex: 1; padding: 11px 6px;
+  border: 1.5px solid var(--border); border-radius: var(--r-sm);
+  background: var(--card); color: var(--text-soft);
+  font-family: 'Nunito', sans-serif; font-size: 13px; font-weight: 700;
+  cursor: pointer; text-align: center; transition: all 0.15s;
+}
+.rtab.sel-feed { border-color: var(--feed-border); background: var(--feed-dim); color: var(--feed); }
+.rtab.sel-nappy { border-color: var(--nappy-border); background: var(--nappy-dim); color: var(--nappy); }
+.rtab.sel-sleep { border-color: var(--sleep-border); background: var(--sleep-dim); color: var(--sleep); }
+.rfields { display: none; }
+.rfields.show { display: block; }
+.field-row { display: flex; gap: 10px; margin-bottom: 12px; }
+.field-col { flex: 1; }
+.field-lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-soft); margin-bottom: 5px; }
+.field-inp {
+  width: 100%; padding: 11px 12px;
+  border: 1px solid var(--border); border-radius: var(--r-sm);
+  background: var(--card); color: var(--text);
+  font-family: 'Nunito Sans', sans-serif; font-size: 14px;
+  outline: none; appearance: none; -webkit-appearance: none;
+  transition: border-color 0.15s;
+}
+.field-inp:focus { border-color: rgba(255,255,255,0.25); }
+select.field-inp { cursor: pointer; }
+.retro-save-btn {
+  width: 100%; padding: 17px; border: none; border-radius: var(--r);
+  background: linear-gradient(135deg,#1B5E20,#4CAF50); color: white;
+  font-family: 'Nunito', sans-serif; font-size: 17px; font-weight: 800;
+  cursor: pointer; margin-top: 6px; transition: transform 0.1s, opacity 0.1s;
+}
+.retro-save-btn:active { transform: scale(0.97); opacity: 0.9; }
+
+.section-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.section-title { font-family: 'Nunito', sans-serif; font-size: 17px; font-weight: 800; }
+.filter-tabs { display: flex; gap: 6px; margin-bottom: 12px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+.filter-tabs::-webkit-scrollbar { display: none; }
+.ftab {
+  padding: 7px 14px; border-radius: 50px;
+  border: 1.5px solid var(--border); background: var(--card);
+  font-family: 'Nunito', sans-serif; font-size: 12px; font-weight: 700;
+  color: var(--text-soft); cursor: pointer; white-space: nowrap; transition: all 0.15s;
+}
+.ftab.active { background: var(--card2); color: var(--text); border-color: rgba(255,255,255,0.2); }
+.history-item {
+  background: var(--card); border-radius: var(--r-sm);
+  padding: 13px 14px; margin-bottom: 8px;
+  border: 1px solid var(--border);
+  display: flex; align-items: flex-start; gap: 12px;
+}
+@keyframes logFlash { 0%,100%{background:var(--card);}40%{background:#2A2010;border-color:var(--nappy);} }
+.log-flash { animation: logFlash 0.7s ease 2; }
+.hi-icon {
+  width: 38px; height: 38px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; flex-shrink: 0;
+}
+.hi-icon.feed { background: var(--feed-dim); }
+.hi-icon.sleep { background: var(--sleep-dim); }
+.hi-icon.nappy { background: var(--nappy-dim); }
+.hi-text { flex: 1; }
+.hi-type { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 14px; }
+.hi-detail { font-size: 12px; color: var(--text-soft); margin-top: 2px; font-weight: 600; }
+.hi-time { font-size: 11px; color: var(--text-muted); font-weight: 600; text-align: right; flex-shrink: 0; }
+.hi-actions { display: flex; justify-content: flex-end; margin-top: 4px; }
+.hi-btn { background: none; border: none; font-size: 16px; cursor: pointer; opacity: 0.3; transition: opacity 0.15s; padding: 0 4px; }
+.hi-btn:hover { opacity: 0.8; }
+.empty-state { text-align: center; padding: 40px 20px; color: var(--text-muted); font-size: 14px; font-weight: 600; }
+.empty-emoji { font-size: 42px; display: block; margin-bottom: 10px; }
+.add-past-btn {
+  width: 100%; padding: 13px;
+  border: 1.5px dashed var(--border); border-radius: var(--r-sm);
+  background: transparent; color: var(--text-soft);
+  font-family: 'Nunito', sans-serif; font-size: 14px; font-weight: 700;
+  cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+  margin-bottom: 12px; transition: all 0.15s;
+}
+.add-past-btn:active { background: var(--card); }
+.sort-btn {
+  background: none; border: 1px solid var(--border); border-radius: 50px;
+  padding: 5px 11px; font-size: 11px; font-weight: 700;
+  color: var(--text-soft); cursor: pointer; font-family: 'Nunito', sans-serif;
+}
+.trend-card {
+  background: var(--card); border-radius: var(--r);
+  padding: 16px; margin-bottom: 10px;
+  border-left: 4px solid var(--border);
+  border-right: 1px solid var(--border);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.trend-title { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 15px; margin-bottom: 10px; }
+.trend-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.trend-item-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--text-soft); margin-bottom: 3px; }
+.trend-item-val { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 17px; }
+.data-btn {
+  width: 100%; padding: 15px; border: 1px solid var(--border);
+  border-radius: var(--r-sm); background: var(--card);
+  color: var(--text); cursor: pointer;
+  display: flex; align-items: center; gap: 10px;
+  font-family: 'Nunito', sans-serif; font-size: 15px; font-weight: 700;
+  margin-bottom: 8px; transition: background 0.15s;
+}
+.data-btn:active { background: var(--card2); }
+.data-btn .d-icon { font-size: 20px; }
+.data-btn.danger { color: #FF6B6B; border-color: rgba(255,107,107,0.25); }
+.info-row {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r-sm); padding: 12px 14px;
+}
+.info-row label { font-size: 13px; font-weight: 700; color: var(--text-soft); flex: 1; }
+.info-inp {
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 7px 10px; background: var(--card2); color: var(--text);
+  font-family: 'Nunito Sans', sans-serif; font-size: 13px; outline: none;
+  max-width: 160px;
+}
+.toast {
+  position: fixed; bottom: 90px; left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: rgba(240,240,255,0.96); color: #0D0D1A;
+  padding: 11px 22px; border-radius: 50px;
+  font-family: 'Nunito', sans-serif; font-size: 13px; font-weight: 700;
+  opacity: 0; transition: all 0.3s; pointer-events: none; z-index: 999;
+  white-space: nowrap; backdrop-filter: blur(10px);
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+#fileInput { display: none; }
 </style>
 </head>
 <body>
 
-<div class="header">
-  <div class="header-left">
-    <div class="baby-name-wrap">
-      <span class="baby-emoji">🍼</span>
-      <span id="babyNameDisplay" onclick="editName()" title="Tap to edit">Baby</span>
-      <input id="babyNameInput" type="text" style="display:none" onblur="saveName()" onkeydown="if(event.key==='Enter')saveName()" maxlength="20">
-      <span id="babyAgeDisplay" style="font-size:11px;color:var(--text-lighter);display:block;margin-top:1px;font-family:'Nunito Sans',sans-serif;font-weight:600"></span>
-    </div>
-  </div>
-  <div class="header-time">
-    <div id="clockDisplay"></div>
-    <div class="header-date" id="dateDisplay"></div>
-  </div>
-</div>
-
 <div class="content">
 
-  <!-- FEED PANEL -->
-  <div class="panel active" id="panel-feed">
-    <div class="section-title"><span>🤱</span>Breastfeeding</div>
-    <div class="active-indicator feed" id="feedActiveCard">
-      <div class="active-label">⏱ Feeding in progress</div>
-      <div class="active-timer feed-timer" id="feedTimerDisplay">00:00</div>
-      <div class="active-detail" id="feedActiveDetail">–</div>
-      <div style="margin-top:6px;font-size:12px;color:var(--text-lighter);display:flex;align-items:center;gap:4px">
-        Started
-        <span id="feedStartTime" onclick="showStartTimeEdit('feed')" style="cursor:pointer;text-decoration:underline;text-underline-offset:2px;font-weight:700;color:var(--text-soft)">–</span>
-        <span style="color:var(--text-lighter);font-size:11px">(tap to adjust)</span>
-        <input type="time" id="feedStartTimeInput" style="display:none;font-size:12px;padding:2px 8px;border:1px solid var(--feed-color);border-radius:6px;color:var(--text);background:var(--warm-white);font-family:'Nunito Sans',sans-serif" onchange="applyStartTimeEdit('feed')" onblur="hideStartTimeEdit('feed')">
+  <!-- NOW PANEL -->
+  <div class="panel active" id="panel-now">
+    <div class="hdr">
+      <div>
+        <div class="baby-name" id="babyNameDisplay" onclick="editName()">Baby</div>
+        <input id="babyNameInput" type="text" onblur="saveName()" onkeydown="if(event.key==='Enter')saveName()" maxlength="20">
+        <div class="baby-age" id="babyAgeDisplay"></div>
       </div>
-      <div id="feedBreakdown" style="margin-top:8px;font-size:13px;font-weight:700;color:var(--feed-dark)"></div>
-    </div>
-    <button class="action-btn btn-feed" id="startFeedBtn" onclick="startFeed()">
-      <span class="btn-icon">🤱</span> Start Feed
-    </button>
-    <button class="action-btn btn-feed-stop" id="stopFeedBtn" onclick="stopFeed()" style="display:none">
-      <span class="btn-icon">⏹</span> Stop Feed
-    </button>
-    <div class="sub-options" id="feedOptions">
-      <div class="option-label">Which side?</div>
-      <div class="toggle-group">
-        <button class="toggle-btn" id="sideLeft" onclick="selectSide('left')">👈 Left</button>
-        <button class="toggle-btn" id="sideBoth" onclick="selectSide('both')">🔄 Both</button>
-        <button class="toggle-btn" id="sideRight" onclick="selectSide('right')">👉 Right</button>
+      <div class="clock">
+        <div class="clock-time" id="clockDisplay"></div>
+        <div class="clock-date" id="dateDisplay"></div>
       </div>
     </div>
-    <div class="divider"></div>
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-      <div class="section-title" style="font-size:17px; margin-bottom:0">📋 Today's Feeds</div>
-      <button class="sort-toggle-btn" onclick="toggleSortOrder()" style="background:none;border:1px solid var(--border);border-radius:50px;padding:5px 12px;font-size:12px;font-weight:700;color:var(--text-soft);cursor:pointer;font-family:'Nunito',sans-serif">↓ Newest first</button>
+
+    <div class="status-card" id="statusCard">
+      <div class="st-left">
+        <div class="st-emoji" id="stEmoji">😊</div>
+        <div class="st-tag" id="stTag">Status</div>
+        <div class="st-name" id="stName">Awake</div>
+        <div class="st-start-row" id="stStartRow" style="display:none">
+          Started
+          <span class="st-start-val" id="stStartVal" onclick="showStartEdit(event)">–</span>
+          <input type="time" class="st-time-inp" id="stStartInp" onchange="applyStartEdit()" onblur="hideStartEdit()">
+          <span style="font-size:10px;color:var(--text-muted)">(tap to adjust)</span>
+        </div>
+      </div>
+      <div style="text-align:right">
+        <div class="st-timer" id="stTimer">–</div>
+        <div class="st-sub" id="stSub"></div>
+      </div>
     </div>
-    <div id="feedTodayStats" style="font-size:13px;color:var(--text-soft);margin-bottom:8px"></div>
-    <div id="feedHeatmap" style="margin-bottom:10px"></div>
-    <button class="add-past-btn" onclick="openRetroModal('feed')">+ Add past feed</button>
-    <div style="height:8px"></div>
-    <div id="feedTodayList"></div>
+
+    <div class="tl-wrap">
+      <div class="tl-header">
+        <div class="tl-title">Activity Timeline</div>
+        <div class="tl-window-btns">
+          <button class="tl-win-btn active" onclick="setTLWindow(6,this)">6h</button>
+          <button class="tl-win-btn" onclick="setTLWindow(12,this)">12h</button>
+          <button class="tl-win-btn" onclick="setTLWindow(24,this)">24h</button>
+        </div>
+      </div>
+      <canvas id="timelineCanvas" height="44"></canvas>
+      <div class="tl-ticks" id="tlTicks"></div>
+      <div class="tl-legend">
+        <div class="tl-leg-item"><div class="tl-leg-dot" style="background:#5B9CF6"></div>Sleep</div>
+        <div class="tl-leg-item"><div class="tl-leg-dot" style="background:#FF6B9D"></div>Feed</div>
+        <div class="tl-leg-item"><div class="tl-leg-dot" style="background:#FFB347"></div>Nappy</div>
+        <div class="tl-leg-item"><div class="tl-leg-dot" style="background:#22223A;border:1px solid #444"></div>Awake</div>
+      </div>
+    </div>
+
+    <div class="side-row" id="sideRow">
+      <button class="side-btn" id="sideLeft" onclick="selectSide('left')">👈 Left</button>
+      <button class="side-btn" id="sideBoth" onclick="selectSide('both')">🔄 Both</button>
+      <button class="side-btn" id="sideRight" onclick="selectSide('right')">👉 Right</button>
+    </div>
+
+    <div class="actions">
+      <div class="act-card" id="feedCard" onclick="toggleFeed()">
+        <div class="act-pulse"></div>
+        <div class="act-icon">🤱</div>
+        <div class="act-label" id="feedLabel">Start Feed</div>
+        <div class="act-sub" id="feedSub"></div>
+      </div>
+      <div class="act-card" id="sleepCard" onclick="toggleSleep()">
+        <div class="act-pulse"></div>
+        <div class="act-icon">😴</div>
+        <div class="act-label" id="sleepLabel">Start Sleep</div>
+        <div class="act-sub" id="sleepSub"></div>
+      </div>
+      <div class="act-card nappy-card" onclick="openNappySheet()">
+        <div class="act-icon" style="font-size:28px;margin:0">🩲</div>
+        <div class="act-label" style="font-size:15px">Log Nappy</div>
+      </div>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-pill">
+        <div class="sp-num feed" id="statFeeds">0</div>
+        <div class="sp-lbl">Feeds today</div>
+      </div>
+      <div class="stat-pill">
+        <div class="sp-num nappy" id="statNappies">0</div>
+        <div class="sp-lbl">Nappies today</div>
+      </div>
+      <div class="stat-pill">
+        <div class="sp-num sleep" id="statSleep">–</div>
+        <div class="sp-lbl">Sleep today</div>
+      </div>
+    </div>
   </div>
 
-  <!-- NAPPY PANEL -->
-  <div class="panel" id="panel-nappy">
-    <div class="section-title"><span>🩲</span>Nappy Change</div>
-    <div class="card">
-      <div class="option-label">Type</div>
-      <div class="toggle-group" style="margin-bottom:0">
-        <button class="toggle-btn" id="nappyPee" onclick="selectNappy('pee')">💛 Pee</button>
-        <button class="toggle-btn" id="nappyPoo" onclick="selectNappy('poo')">💩 Poo</button>
-        <button class="toggle-btn" id="nappyBoth" onclick="selectNappy('both')">💛💩 Both</button>
+  <!-- LOG PANEL -->
+  <div class="panel" id="panel-log">
+    <div style="padding:14px 14px 0">
+      <div class="section-hdr">
+        <div class="section-title">📋 Log</div>
+        <button class="sort-btn" onclick="toggleSort()">↓ Newest</button>
       </div>
-      <div id="colourSection">
-        <div class="option-label">Colour</div>
-        <div class="colour-grid" id="colourGrid"></div>
+      <button class="add-past-btn" onclick="openRetroModal('feed')">+ Add past entry</button>
+      <div class="filter-tabs">
+        <button class="ftab active" onclick="setFilter('all',this)">All</button>
+        <button class="ftab" onclick="setFilter('feed',this)">🤱 Feeds</button>
+        <button class="ftab" onclick="setFilter('nappy',this)">🩲 Nappies</button>
+        <button class="ftab" onclick="setFilter('sleep',this)">😴 Sleeps</button>
       </div>
-      <div class="option-label">Notes (optional)</div>
-      <textarea class="notes-input" id="nappyNotes" rows="2" placeholder="Any observations…"></textarea>
+      <div id="historyList"></div>
     </div>
-    <button class="action-btn btn-nappy" onclick="logNappy()">
-      <span class="btn-icon">✅</span> Log Nappy Change
-    </button>
-    <div class="divider"></div>
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-      <div class="section-title" style="font-size:17px; margin-bottom:0">📋 Today's Nappies</div>
-      <button class="sort-toggle-btn" onclick="toggleSortOrder()" style="background:none;border:1px solid var(--border);border-radius:50px;padding:5px 12px;font-size:12px;font-weight:700;color:var(--text-soft);cursor:pointer;font-family:'Nunito',sans-serif">↓ Newest first</button>
-    </div>
-    <div id="nappyTodayStats" style="font-size:13px;color:var(--text-soft);margin-bottom:8px"></div>
-    <div id="nappyHeatmap" style="margin-bottom:10px"></div>
-    <button class="add-past-btn" onclick="openRetroModal('nappy')">+ Add past nappy</button>
-    <div style="height:8px"></div>
-    <div id="nappyTodayList"></div>
-  </div>
-
-  <!-- SLEEP PANEL -->
-  <div class="panel" id="panel-sleep">
-    <div class="section-title"><span>😴</span>Sleep</div>
-    <div class="active-indicator sleep" id="sleepActiveCard">
-      <div class="active-label">💤 Sleeping now</div>
-      <div class="active-timer sleep-timer" id="sleepTimerDisplay">00:00</div>
-      <div style="margin-top:6px;font-size:12px;color:var(--text-lighter);display:flex;align-items:center;gap:4px">
-        Started
-        <span id="sleepStartTime" onclick="showStartTimeEdit('sleep')" style="cursor:pointer;text-decoration:underline;text-underline-offset:2px;font-weight:700;color:var(--text-soft)">–</span>
-        <span style="color:var(--text-lighter);font-size:11px">(tap to adjust)</span>
-        <input type="time" id="sleepStartTimeInput" style="display:none;font-size:12px;padding:2px 8px;border:1px solid var(--sleep-color);border-radius:6px;color:var(--text);background:var(--warm-white);font-family:'Nunito Sans',sans-serif" onchange="applyStartTimeEdit('sleep')" onblur="hideStartTimeEdit('sleep')">
-      </div>
-    </div>
-    <button class="action-btn btn-sleep" id="startSleepBtn" onclick="startSleep()">
-      <span class="btn-icon">😴</span> Baby is Sleeping
-    </button>
-    <button class="action-btn btn-sleep-stop" id="stopSleepBtn" onclick="stopSleep()" style="display:none">
-      <span class="btn-icon">☀️</span> Baby Woke Up
-    </button>
-    <div class="divider"></div>
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-      <div class="section-title" style="font-size:17px; margin-bottom:0">📋 Today's Sleeps</div>
-      <button class="sort-toggle-btn" onclick="toggleSortOrder()" style="background:none;border:1px solid var(--border);border-radius:50px;padding:5px 12px;font-size:12px;font-weight:700;color:var(--text-soft);cursor:pointer;font-family:'Nunito',sans-serif">↓ Newest first</button>
-    </div>
-    <div id="sleepTodayStats" style="font-size:13px;color:var(--text-soft);margin-bottom:8px"></div>
-    <div id="sleepHeatmap" style="margin-bottom:10px"></div>
-    <button class="add-past-btn" onclick="openRetroModal('sleep')">+ Add past sleep</button>
-    <div style="height:8px"></div>
-    <div id="sleepTodayList"></div>
-  </div>
-
-  <!-- HISTORY / DATA PANEL -->
-  <div class="panel" id="panel-history">
-    <div class="section-title"><span>📊</span>Summary</div>
-    <div class="stats-grid" id="statsGrid"></div>
-    <div class="divider"></div>
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-      <div class="section-title" style="font-size:17px; margin-bottom:0">Log</div>
-      <button class="sort-toggle-btn" onclick="toggleSortOrder()" style="background:none;border:1px solid var(--border);border-radius:50px;padding:5px 12px;font-size:12px;font-weight:700;color:var(--text-soft);cursor:pointer;font-family:'Nunito',sans-serif">↓ Newest first</button>
-    </div>
-    <button class="add-past-btn" onclick="openRetroModal('feed')">+ Add past entry</button>
-    <div style="height:10px"></div>
-    <div class="filter-tabs">
-      <button class="filter-tab active-tab" onclick="setFilter('all', this)">All</button>
-      <button class="filter-tab" onclick="setFilter('feed', this)">🤱 Feeds</button>
-      <button class="filter-tab" onclick="setFilter('nappy', this)">🩲 Nappies</button>
-      <button class="filter-tab" onclick="setFilter('sleep', this)">😴 Sleeps</button>
-    </div>
-    <div id="historyList"></div>
-    <div class="divider"></div>
-    <div class="section-title" style="font-size:17px; margin-bottom:12px">👶 Baby Info</div>
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;background:var(--warm-white);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px">
-      <label style="font-size:14px;font-weight:700;color:var(--text-soft);flex:1">Date of birth</label>
-      <input type="date" id="birthDateInput" onchange="saveBirthDate()" style="border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-family:'Nunito Sans',sans-serif;font-size:14px;color:var(--text);background:var(--cream);max-width:160px">
-    </div>
-    <div class="section-title" style="font-size:17px; margin-bottom:12px">⚙️ Data</div>
-    <button class="data-btn" onclick="checkForUpdates()"><span class="d-icon">🔄</span> Check for Updates</button>
-    <button class="data-btn" onclick="openTextImportModal()"><span class="d-icon">📋</span> Paste Text Import</button>
-    <button class="data-btn" onclick="openEmailModal()"><span class="d-icon">📧</span> Email Log</button>
-    <button class="data-btn" onclick="exportData()"><span class="d-icon">⬆️</span> Export Data (JSON)</button>
-    <button class="data-btn" onclick="document.getElementById('fileInput').click()"><span class="d-icon">⬇️</span> Import Data (JSON)</button>
-    <input type="file" id="fileInput" accept=".json" onchange="importData(event)">
-    <button class="data-btn danger" onclick="clearAllData()"><span class="d-icon">🗑️</span> Clear All Data</button>
   </div>
 
   <!-- TRENDS PANEL -->
   <div class="panel" id="panel-trends">
-    <div class="section-title"><span>📈</span>Trends</div>
-    <div id="trendsContent"></div>
+    <div style="padding:14px">
+      <div class="section-title" style="margin-bottom:14px">📈 Trends</div>
+      <div id="trendsContent"></div>
+    </div>
   </div>
 
+  <!-- MORE PANEL -->
+  <div class="panel" id="panel-more">
+    <div style="padding:14px">
+      <div class="section-title" style="margin-bottom:14px">⚙️ Settings &amp; Data</div>
+      <div class="info-row">
+        <label>Date of birth</label>
+        <input type="date" class="info-inp" id="birthDateInput" onchange="saveBirthDate()">
+      </div>
+      <button class="data-btn" onclick="checkForUpdates()"><span class="d-icon">🔄</span> Check for Updates</button>
+      <button class="data-btn" onclick="exportData()"><span class="d-icon">⬆️</span> Export Data (JSON)</button>
+      <button class="data-btn" onclick="document.getElementById('fileInput').click()"><span class="d-icon">⬇️</span> Import Data (JSON)</button>
+      <input type="file" id="fileInput" accept=".json" onchange="importData(event)">
+      <button class="data-btn danger" onclick="clearAllData()"><span class="d-icon">🗑️</span> Clear All Data</button>
+    </div>
+  </div>
 </div>
 
-<nav class="bottom-nav">
-  <button class="nav-btn active active-feed" id="nav-feed" onclick="showPanel('feed')">
-    <span class="nav-dot feed" id="feedDot"></span>
-    <span class="nav-icon">🤱</span>
-    <span class="nav-label">Feed</span>
+<nav class="bnav">
+  <button class="bnav-btn active" id="nav-now" onclick="showPanel('now')">
+    <span class="bnav-icon">📊</span>
+    <span class="bnav-lbl">Now</span>
   </button>
-  <button class="nav-btn" id="nav-nappy" onclick="showPanel('nappy')">
-    <span class="nav-icon">🩲</span>
-    <span class="nav-label">Nappy</span>
+  <button class="bnav-btn" id="nav-log" onclick="showPanel('log')">
+    <span class="bnav-icon">📋</span>
+    <span class="bnav-lbl">Log</span>
   </button>
-  <button class="nav-btn" id="nav-sleep" onclick="showPanel('sleep')">
-    <span class="nav-dot sleep" id="sleepDot"></span>
-    <span class="nav-icon">😴</span>
-    <span class="nav-label">Sleep</span>
+  <button class="bnav-btn" id="nav-trends" onclick="showPanel('trends')">
+    <span class="bnav-icon">📈</span>
+    <span class="bnav-lbl">Trends</span>
   </button>
-  <button class="nav-btn" id="nav-history" onclick="showPanel('history')">
-    <span class="nav-icon">📊</span>
-    <span class="nav-label">Summary</span>
-  </button>
-  <button class="nav-btn" id="nav-trends" onclick="showPanel('trends')">
-    <span class="nav-icon">📈</span>
-    <span class="nav-label">Trends</span>
+  <button class="bnav-btn" id="nav-more" onclick="showPanel('more')">
+    <span class="bnav-icon">⚙️</span>
+    <span class="bnav-lbl">More</span>
   </button>
 </nav>
 
 <div class="toast" id="toast"></div>
 
-<!-- RETROSPECTIVE ENTRY MODAL -->
-<div class="modal-overlay" id="retroModal" onclick="handleOverlayClick(event)">
+<!-- Nappy sheet -->
+<div class="overlay" id="nappyOverlay" onclick="closeNappySheet()"></div>
+<div class="bottom-sheet" id="nappySheet">
+  <div class="sh-handle"></div>
+  <div class="sh-header">
+    <span class="sh-title">🩲 Log Nappy</span>
+    <button class="sh-close" onclick="closeNappySheet()">✕</button>
+  </div>
+  <div class="sh-body">
+    <div class="nappy-type-row">
+      <button class="nt-btn sel" id="nt-pee" onclick="selNappyType('pee')">💛 Pee</button>
+      <button class="nt-btn" id="nt-poo" onclick="selNappyType('poo')">💩 Poo</button>
+      <button class="nt-btn" id="nt-both" onclick="selNappyType('both')">Both</button>
+    </div>
+    <div class="colour-grid" id="colourGrid"></div>
+    <textarea class="notes-inp" id="nappyNotes" rows="2" placeholder="Notes (optional)…"></textarea>
+    <button class="sh-save-btn" onclick="logNappy()">✅ Log Nappy Change</button>
+  </div>
+</div>
+
+<!-- Retro modal -->
+<div class="modal-overlay" id="retroModal" onclick="handleRetroOverlayClick(event)">
   <div class="modal-sheet">
     <div class="modal-handle"></div>
     <div class="modal-header">
-      <span class="modal-title">✏️ Add Past Entry</span>
+      <span class="modal-title" id="retroModalTitle">✏️ Add Past Entry</span>
       <button class="modal-close" onclick="closeRetroModal()">✕</button>
     </div>
     <div class="modal-body">
-      <div class="retro-type-tabs">
-        <button class="retro-type-tab sel-feed" id="rtab-feed" onclick="setRetroType('feed')">🤱 Feed</button>
-        <button class="retro-type-tab" id="rtab-nappy" onclick="setRetroType('nappy')">🩲 Nappy</button>
-        <button class="retro-type-tab" id="rtab-sleep" onclick="setRetroType('sleep')">😴 Sleep</button>
+      <div class="retro-tabs">
+        <button class="rtab sel-feed" id="rtab-feed" onclick="setRetroType('feed')">🤱 Feed</button>
+        <button class="rtab" id="rtab-nappy" onclick="setRetroType('nappy')">🩲 Nappy</button>
+        <button class="rtab" id="rtab-sleep" onclick="setRetroType('sleep')">😴 Sleep</button>
       </div>
-      <!-- FEED fields -->
-      <div class="retro-fields show" id="rfields-feed">
+      <div class="rfields show" id="rfields-feed">
         <div class="field-row">
-          <div class="field-col">
-            <div class="field-label">Date</div>
-            <input type="date" class="field-input" id="rf-date">
-          </div>
-          <div class="field-col">
-            <div class="field-label">Start time</div>
-            <input type="time" class="field-input" id="rf-start">
-          </div>
+          <div class="field-col"><div class="field-lbl">Date</div><input type="date" class="field-inp" id="rf-date"></div>
+          <div class="field-col"><div class="field-lbl">Start time</div><input type="time" class="field-inp" id="rf-start"></div>
         </div>
         <div class="field-row">
-          <div class="field-col">
-            <div class="field-label">Duration (mins)</div>
-            <input type="number" class="field-input" id="rf-duration" placeholder="e.g. 15" min="1" max="120">
-          </div>
-          <div class="field-col">
-            <div class="field-label">Side</div>
-            <select class="field-input" id="rf-side">
-              <option value="left">Left</option>
-              <option value="both">Both</option>
-              <option value="right">Right</option>
-            </select>
+          <div class="field-col"><div class="field-lbl">Duration (mins)</div><input type="number" class="field-inp" id="rf-duration" placeholder="e.g. 15" min="1" max="180"></div>
+          <div class="field-col"><div class="field-lbl">Side</div>
+            <select class="field-inp" id="rf-side"><option value="left">Left</option><option value="both">Both</option><option value="right">Right</option></select>
           </div>
         </div>
       </div>
-      <!-- NAPPY fields -->
-      <div class="retro-fields" id="rfields-nappy">
+      <div class="rfields" id="rfields-nappy">
         <div class="field-row">
-          <div class="field-col">
-            <div class="field-label">Date</div>
-            <input type="date" class="field-input" id="rn-date">
-          </div>
-          <div class="field-col">
-            <div class="field-label">Time</div>
-            <input type="time" class="field-input" id="rn-time">
-          </div>
+          <div class="field-col"><div class="field-lbl">Date</div><input type="date" class="field-inp" id="rn-date"></div>
+          <div class="field-col"><div class="field-lbl">Time</div><input type="time" class="field-inp" id="rn-time"></div>
         </div>
         <div class="field-row" style="margin-bottom:10px">
-          <div class="field-col">
-            <div class="field-label">Type</div>
-            <select class="field-input" id="rn-type" onchange="updateRetroColours()">
-              <option value="pee">Pee</option>
-              <option value="poo">Poo</option>
-              <option value="both">Both</option>
-            </select>
+          <div class="field-col"><div class="field-lbl">Type</div>
+            <select class="field-inp" id="rn-type" onchange="updateRetroColours()"><option value="pee">Pee</option><option value="poo">Poo</option><option value="both">Both</option></select>
           </div>
-          <div class="field-col">
-            <div class="field-label">Colour</div>
-            <select class="field-input" id="rn-colour"></select>
-          </div>
+          <div class="field-col"><div class="field-lbl">Colour</div><select class="field-inp" id="rn-colour"></select></div>
         </div>
-        <div class="field-label">Notes (optional)</div>
-        <textarea class="field-input" id="rn-notes" rows="2" placeholder="Any observations..." style="resize:none;margin-bottom:4px"></textarea>
       </div>
-      <!-- SLEEP fields -->
-      <div class="retro-fields" id="rfields-sleep">
+      <div class="rfields" id="rfields-sleep">
         <div class="field-row">
-          <div class="field-col">
-            <div class="field-label">Date</div>
-            <input type="date" class="field-input" id="rs-date">
-          </div>
-          <div class="field-col">
-            <div class="field-label">Sleep start</div>
-            <input type="time" class="field-input" id="rs-start">
-          </div>
+          <div class="field-col"><div class="field-lbl">Date</div><input type="date" class="field-inp" id="rs-date"></div>
+          <div class="field-col"><div class="field-lbl">Sleep start</div><input type="time" class="field-inp" id="rs-start"></div>
         </div>
         <div class="field-row">
-          <div class="field-col">
-            <div class="field-label">Wake date (if different)</div>
-            <input type="date" class="field-input" id="rs-end-date">
-          </div>
-          <div class="field-col">
-            <div class="field-label">Wake time</div>
-            <input type="time" class="field-input" id="rs-end">
-          </div>
+          <div class="field-col"><div class="field-lbl">Wake date (if diff.)</div><input type="date" class="field-inp" id="rs-end-date"></div>
+          <div class="field-col"><div class="field-lbl">Wake time</div><input type="time" class="field-inp" id="rs-end"></div>
         </div>
       </div>
       <button class="retro-save-btn" onclick="saveRetroEntry()">Save Entry</button>
@@ -535,1025 +677,638 @@
   </div>
 </div>
 
-<!-- TEXT IMPORT MODAL -->
-<div class="modal-overlay" id="textImportModal" onclick="handleTextImportOverlayClick(event)">
-  <div class="modal-sheet">
-    <div class="modal-handle"></div>
-    <div class="modal-header">
-      <span class="modal-title">📋 Paste Text Import</span>
-      <button class="modal-close" onclick="closeTextImportModal()">✕</button>
-    </div>
-    <div class="modal-body">
-      <div style="background:var(--cream);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:14px;font-size:12px;font-weight:600;color:var(--text-soft);line-height:1.8">
-        <strong style="color:var(--text)">Format:</strong> <code style="background:var(--border);padding:1px 5px;border-radius:4px">DATE HH:MM TYPE [details]</code><br>
-        <strong style="color:var(--text)">Date:</strong> YYYY-MM-DD <em>or</em> DD/MM/YYYY &nbsp;·&nbsp; <strong style="color:var(--text)">Time:</strong> 24-hour<br>
-        <strong style="color:var(--feed-dark)">feed</strong> [left|right|both] [mins] &nbsp;·&nbsp;
-        <strong style="color:var(--nappy-dark)">nappy</strong> [pee|poo|both] [colour]<br>
-        <strong style="color:var(--sleep-dark)">sleep</strong> [mins] &nbsp;·&nbsp; Lines starting with <code style="background:var(--border);padding:1px 5px;border-radius:4px">#</code> are ignored
-      </div>
-      <textarea class="notes-input" id="textImportArea" rows="10"
-        style="font-family:monospace;font-size:13px;margin-bottom:10px"
-        placeholder="2026-05-13 14:00 feed left 15&#10;2026-05-13 13:15 nappy poo brown&#10;2026-05-13 11:00 sleep 90&#10;2026-05-13 09:30 feed both&#10;2026-05-13 08:00 nappy pee"
-        oninput="previewTextImport()"></textarea>
-      <div id="textImportPreview" style="font-size:13px;font-weight:700;min-height:18px;margin-bottom:14px"></div>
-      <button class="retro-save-btn" onclick="importTextEntries()">✅ Import Entries</button>
-    </div>
-  </div>
-</div>
-
-<!-- EMAIL MODAL -->
-<div class="modal-overlay" id="emailModal" onclick="handleEmailOverlayClick(event)">
-  <div class="modal-sheet">
-    <div class="modal-handle"></div>
-    <div class="modal-header">
-      <span class="modal-title">📧 Email Log</span>
-      <button class="modal-close" onclick="closeEmailModal()">✕</button>
-    </div>
-    <div class="modal-body">
-      <div class="field-label">Your email address</div>
-      <input type="email" class="field-input" id="emailInput" placeholder="you@example.com" style="margin-bottom:14px">
-      <p style="font-size:13px; color:var(--text-soft); font-weight:600; margin-bottom:18px; line-height:1.6">
-        Opens your email app with the full log pre-filled. For large logs, the text is copied to your clipboard instead — just paste into the email body.
-      </p>
-      <button class="retro-save-btn" style="background:linear-gradient(135deg,#B3E5FC 0%,#4FC3F7 100%);color:#01579B" onclick="sendEmailLog()">📧 Open Email App</button>
-    </div>
-  </div>
-</div>
-
 <script>
-let state = { babyName: 'Baby', birthDate: null, logs: [], feedSession: null, sleepSession: null };
+let state = { babyName:'Baby', birthDate:null, logs:[], feedSession:null, sleepSession:null };
 let feedSide = 'left';
 let nappyType = 'pee';
 let nappyColour = '';
 let historyFilter = 'all';
 let sortAsc = false;
-let feedTimerInterval = null;
-let sleepTimerInterval = null;
 let editingLogId = null;
+let retroType = 'feed';
+let tlWindowHours = 6;
 
 const NAPPY_COLOURS = {
-  pee: [
-    { label: '🟡 Yellow', bg: '#FFF59D', text: '#827717' },
-    { label: '🟤 Dark Yellow', bg: '#FFCA28', text: '#5D4037' },
-    { label: '⬜ Clear', bg: '#F5F5F5', text: '#616161' },
-  ],
-  poo: [
-    { label: '⬛ Black', bg: '#424242', text: '#FAFAFA' },
-    { label: '💚 Green', bg: '#A5D6A7', text: '#1B5E20' },
-    { label: '🟡 Yellow', bg: '#FFF176', text: '#827717' },
-    { label: '🟤 Brown', bg: '#8D6E63', text: '#FFF8F2' },
-    { label: '🟠 Orange', bg: '#FFAB40', text: '#BF360C' },
-    { label: '🔴 Red', bg: '#EF9A9A', text: '#B71C1C' },
-    { label: '⬜ White/Grey', bg: '#EEEEEE', text: '#424242' },
-  ],
-  both: [
-    { label: '🟡 Yellow', bg: '#FFF59D', text: '#827717' },
-    { label: '💚 Green', bg: '#A5D6A7', text: '#1B5E20' },
-    { label: '🟤 Brown', bg: '#8D6E63', text: '#FFF8F2' },
-    { label: '🟠 Orange', bg: '#FFAB40', text: '#BF360C' },
-    { label: '🔴 Red', bg: '#EF9A9A', text: '#B71C1C' },
-  ],
+  pee: [{label:'🟡 Yellow',bg:'#FFF59D',text:'#4A4000'},{label:'🟤 Dark',bg:'#FFCA28',text:'#3E2000'},{label:'⬜ Clear',bg:'#E0E0E0',text:'#444'}],
+  poo: [{label:'⬛ Black',bg:'#424242',text:'#FFF'},{label:'💚 Green',bg:'#A5D6A7',text:'#1B5E20'},{label:'🟡 Yellow',bg:'#FFF176',text:'#4A4000'},{label:'🟤 Brown',bg:'#8D6E63',text:'#FFF'},{label:'🟠 Orange',bg:'#FFAB40',text:'#3E1000'},{label:'🔴 Red',bg:'#EF9A9A',text:'#7B0000'},{label:'⬜ Grey',bg:'#BDBDBD',text:'#333'}],
+  both: [{label:'🟡 Yellow',bg:'#FFF59D',text:'#4A4000'},{label:'💚 Green',bg:'#A5D6A7',text:'#1B5E20'},{label:'🟤 Brown',bg:'#8D6E63',text:'#FFF'},{label:'🟠 Orange',bg:'#FFAB40',text:'#3E1000'},{label:'🔴 Red',bg:'#EF9A9A',text:'#7B0000'}],
 };
+const RETRO_COLOURS = { pee:['Yellow','Dark Yellow','Clear'], poo:['Black','Green','Yellow','Brown','Orange','Red','White/Grey'], both:['Yellow','Green','Brown','Orange','Red'] };
 
 function init() {
   const saved = localStorage.getItem('babyTrackerState');
-  if (saved) { try { const p = JSON.parse(saved); state = { ...state, ...p }; } catch(e) {} }
-  document.getElementById('babyNameDisplay').textContent = state.babyName || 'Baby';
+  if (saved) { try { const p=JSON.parse(saved); state={...state,...p}; } catch(e){} }
+  document.getElementById('babyNameDisplay').textContent = state.babyName||'Baby';
   if (state.birthDate) document.getElementById('birthDateInput').value = state.birthDate;
   updateAgeDisplay();
-  updateColourGrid();
-  restoreActiveSessions();
-  refreshAll();
+  if (state.feedSession) {
+    if (!state.feedSession.segments) state.feedSession.segments=[];
+    if (!state.feedSession.currentSegmentStart) state.feedSession.currentSegmentStart=state.feedSession.startTime;
+    feedSide = state.feedSession.side||'left';
+    ['left','both','right'].forEach(s=>{
+      document.getElementById('side'+s.charAt(0).toUpperCase()+s.slice(1)).classList.toggle('sel',s===feedSide);
+    });
+  }
+  updateNowPanel();
+  refreshHistory();
   updateClock();
-  setInterval(updateClock, 1000);
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
+  setInterval(tick, 1000);
 }
+
 function saveState() { localStorage.setItem('babyTrackerState', JSON.stringify(state)); }
+
+function tick() {
+  updateClock();
+  updateStatusCard();
+  updateActionCards();
+  updateTodayStats();
+  drawTimeline();
+}
 
 function updateClock() {
   const now = new Date();
-  document.getElementById('clockDisplay').textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  document.getElementById('dateDisplay').textContent = now.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
+  document.getElementById('clockDisplay').textContent = now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  document.getElementById('dateDisplay').textContent = now.toLocaleDateString([],{weekday:'short',day:'numeric',month:'short'});
 }
 
 function editName() {
-  const d = document.getElementById('babyNameDisplay');
-  const i = document.getElementById('babyNameInput');
-  i.value = state.babyName; d.style.display = 'none'; i.style.display = 'inline'; i.focus(); i.select();
+  const d=document.getElementById('babyNameDisplay'), i=document.getElementById('babyNameInput');
+  i.value=state.babyName; d.style.display='none'; i.style.display='inline'; i.focus(); i.select();
 }
 function saveName() {
-  const i = document.getElementById('babyNameInput');
-  const d = document.getElementById('babyNameDisplay');
-  const name = i.value.trim() || 'Baby';
-  state.babyName = name; d.textContent = name; d.style.display = 'inline'; i.style.display = 'none'; saveState();
+  const i=document.getElementById('babyNameInput'), d=document.getElementById('babyNameDisplay');
+  const name=i.value.trim()||'Baby';
+  state.babyName=name; d.textContent=name; d.style.display='inline'; i.style.display='none'; saveState();
 }
-
 function saveBirthDate() {
-  state.birthDate = document.getElementById('birthDateInput').value || null;
-  saveState();
-  updateAgeDisplay();
-  refreshTrends();
+  state.birthDate=document.getElementById('birthDateInput').value||null;
+  saveState(); updateAgeDisplay(); refreshTrends();
 }
-
 function getAgeInDays() {
   if (!state.birthDate) return null;
-  const birth = new Date(state.birthDate);
-  birth.setHours(0,0,0,0);
-  return Math.floor((Date.now() - birth.getTime()) / 86400000);
+  const b=new Date(state.birthDate); b.setHours(0,0,0,0);
+  return Math.floor((Date.now()-b.getTime())/86400000);
 }
-
 function formatAge(days) {
-  if (days < 0) return null;
-  if (days < 7) return days === 1 ? '1 day old' : `${days} days old`;
-  if (days < 91) {
-    const w = Math.floor(days / 7), d = days % 7;
-    return d === 0 ? `${w}w old` : `${w}w ${d}d old`;
-  }
-  const m = Math.floor(days / 30.44), d = Math.round(days % 30.44);
-  return d === 0 ? `${m}mo old` : `${m}mo ${d}d old`;
+  if (days<0) return null;
+  if (days<7) return days===1?'1 day old':`${days} days old`;
+  if (days<91) { const w=Math.floor(days/7),d=days%7; return d===0?`${w}w old`:`${w}w ${d}d old`; }
+  const m=Math.floor(days/30.44),d=Math.round(days%30.44);
+  return d===0?`${m}mo old`:`${m}mo ${d}d old`;
 }
-
 function updateAgeDisplay() {
-  const el = document.getElementById('babyAgeDisplay');
-  const days = getAgeInDays();
-  el.textContent = days != null ? (formatAge(days) || '') : '';
-}
-
-function getTypicalIntervalMs(type, ageDays) {
-  if (ageDays == null) return null;
-  const h = (hours) => hours * 3600000;
-  if (type === 'feed') {
-    if (ageDays < 14)  return h(2.5);
-    if (ageDays < 28)  return h(3.0);
-    if (ageDays < 60)  return h(3.5);
-    if (ageDays < 90)  return h(4.0);
-    if (ageDays < 150) return h(4.5);
-    if (ageDays < 180) return h(5.0);
-    return h(4.0);
-  }
-  if (type === 'nappy') {
-    if (ageDays < 28)  return h(2.0);
-    if (ageDays < 90)  return h(2.5);
-    if (ageDays < 180) return h(3.0);
-    return h(3.5);
-  }
-  if (type === 'sleep') {
-    if (ageDays < 28)  return h(1.5);
-    if (ageDays < 56)  return h(2.0);
-    if (ageDays < 90)  return h(2.5);
-    if (ageDays < 120) return h(3.0);
-    if (ageDays < 180) return h(3.5);
-    return h(4.5);
-  }
-  return null;
+  const days=getAgeInDays();
+  document.getElementById('babyAgeDisplay').textContent=days!=null?(formatAge(days)||''):'';
 }
 
 function showPanel(name) {
-  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active','active-feed','active-sleep','active-nappy','active-history'));
-  document.getElementById('panel-' + name).classList.add('active');
-  const nb = document.getElementById('nav-' + name);
-  nb.classList.add('active', 'active-' + name);
-  if (name === 'history') refreshHistory();
-  if (name === 'feed') refreshTodayList('feed');
-  if (name === 'nappy') refreshTodayList('nappy');
-  if (name === 'sleep') refreshTodayList('sleep');
-  if (name === 'trends') refreshTrends();
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.bnav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('panel-'+name).classList.add('active');
+  document.getElementById('nav-'+name).classList.add('active');
+  if (name==='log') refreshHistory();
+  if (name==='trends') refreshTrends();
+  if (name==='now') { resizeCanvas(); drawTimeline(); }
+}
+
+function updateStatusCard() {
+  const card=document.getElementById('statusCard');
+  const startRow=document.getElementById('stStartRow');
+  card.classList.remove('st-feed','st-sleep');
+  if (state.feedSession) {
+    card.classList.add('st-feed');
+    document.getElementById('stEmoji').textContent='🤱';
+    document.getElementById('stTag').textContent='Feeding';
+    document.getElementById('stName').textContent='Breastfeeding';
+    const elapsed=Math.round((Date.now()-state.feedSession.startTime)/1000);
+    document.getElementById('stTimer').textContent=formatDur(elapsed);
+    startRow.style.display='flex';
+    document.getElementById('stStartVal').textContent=fmtTime(state.feedSession.startTime);
+    const segs=state.feedSession.segments||[];
+    if (segs.length>0) {
+      const tots={};
+      segs.forEach(s=>{tots[s.side]=(tots[s.side]||0)+s.duration;});
+      const cur=Math.round((Date.now()-(state.feedSession.currentSegmentStart||state.feedSession.startTime))/1000);
+      tots[state.feedSession.side]=(tots[state.feedSession.side]||0)+cur;
+      const parts=[];
+      if(tots.left)parts.push('👈 '+formatDur(tots.left));
+      if(tots.both)parts.push('🔄 '+formatDur(tots.both));
+      if(tots.right)parts.push('👉 '+formatDur(tots.right));
+      document.getElementById('stSub').textContent=parts.join(' · ');
+    } else {
+      const sides={left:'👈 Left',right:'👉 Right',both:'🔄 Both'};
+      document.getElementById('stSub').textContent=sides[state.feedSession.side]||'';
+    }
+  } else if (state.sleepSession) {
+    card.classList.add('st-sleep');
+    document.getElementById('stEmoji').textContent='💤';
+    document.getElementById('stTag').textContent='Sleeping';
+    document.getElementById('stName').textContent='Baby is Sleeping';
+    document.getElementById('stTimer').textContent=formatDur(Math.round((Date.now()-state.sleepSession.startTime)/1000));
+    document.getElementById('stSub').textContent='Tap "Wake Up" when awake';
+    startRow.style.display='flex';
+    document.getElementById('stStartVal').textContent=fmtTime(state.sleepSession.startTime);
+  } else {
+    document.getElementById('stEmoji').textContent='😊';
+    document.getElementById('stTag').textContent='Status';
+    document.getElementById('stName').textContent='Awake';
+    const last=state.logs[0];
+    if (last) {
+      document.getElementById('stTimer').textContent=formatDur(Math.round((Date.now()-last.startTime)/1000));
+      document.getElementById('stSub').textContent='since last '+last.type;
+    } else {
+      document.getElementById('stTimer').textContent='–';
+      document.getElementById('stSub').textContent='No activity yet';
+    }
+    startRow.style.display='none';
+  }
+}
+
+function showStartEdit(e) {
+  e.stopPropagation();
+  const session=state.feedSession||state.sleepSession;
+  if (!session) return;
+  const inp=document.getElementById('stStartInp');
+  inp.value=new Date(session.startTime).toTimeString().slice(0,5);
+  document.getElementById('stStartVal').style.display='none';
+  inp.style.display='inline'; inp.focus();
+}
+function applyStartEdit() {
+  const session=state.feedSession||state.sleepSession;
+  if (!session) return;
+  const val=document.getElementById('stStartInp').value;
+  if (!val){hideStartEdit();return;}
+  const [h,m]=val.split(':').map(Number);
+  const d=new Date(); d.setHours(h,m,0,0);
+  let ts=d.getTime();
+  if (ts>Date.now()) ts-=86400000;
+  session.startTime=ts;
+  if (state.feedSession&&(!session.segments||!session.segments.length)) session.currentSegmentStart=ts;
+  saveState(); hideStartEdit();
+}
+function hideStartEdit() {
+  document.getElementById('stStartInp').style.display='none';
+  document.getElementById('stStartVal').style.display='inline';
+}
+
+function updateActionCards() {
+  const fc=document.getElementById('feedCard'), sc=document.getElementById('sleepCard');
+  const fl=document.getElementById('feedLabel'), sl=document.getElementById('sleepLabel');
+  const fs=document.getElementById('feedSub'), ss=document.getElementById('sleepSub');
+  const sr=document.getElementById('sideRow');
+  if (state.feedSession) {
+    fc.classList.add('ac-feed'); sc.classList.remove('ac-sleep');
+    fl.textContent='Stop Feed';
+    fs.textContent=formatDur(Math.round((Date.now()-state.feedSession.startTime)/1000));
+    sr.classList.add('show');
+    sl.textContent='Start Sleep'; ss.textContent='';
+  } else if (state.sleepSession) {
+    sc.classList.add('ac-sleep'); fc.classList.remove('ac-feed');
+    sl.textContent='Wake Up';
+    ss.textContent=formatDur(Math.round((Date.now()-state.sleepSession.startTime)/1000));
+    sr.classList.remove('show');
+    fl.textContent='Start Feed'; fs.textContent='';
+  } else {
+    fc.classList.remove('ac-feed'); sc.classList.remove('ac-sleep');
+    fl.textContent='Start Feed'; fs.textContent='';
+    sl.textContent='Start Sleep'; ss.textContent='';
+    sr.classList.remove('show');
+  }
+}
+
+function updateTodayStats() {
+  const today=new Date(); today.setHours(0,0,0,0);
+  const ts=today.getTime();
+  const tl=state.logs.filter(l=>l.startTime>=ts);
+  document.getElementById('statFeeds').textContent=tl.filter(l=>l.type==='feed').length;
+  document.getElementById('statNappies').textContent=tl.filter(l=>l.type==='nappy').length;
+  const slpSec=tl.filter(l=>l.type==='sleep').reduce((a,l)=>a+(l.duration||0),0);
+  document.getElementById('statSleep').textContent=slpSec>0?formatDur(slpSec):'–';
+}
+
+function updateNowPanel() { updateStatusCard(); updateActionCards(); updateTodayStats(); drawTimeline(); }
+
+function toggleFeed() {
+  if (state.feedSession){stopFeed();}else{startFeed();}
+}
+function startFeed() {
+  if (state.feedSession||state.sleepSession) return;
+  const now=Date.now();
+  state.feedSession={startTime:now,side:feedSide,segments:[],currentSegmentStart:now};
+  saveState(); updateNowPanel(); showToast('Feed started 🤱');
+}
+function stopFeed() {
+  if (!state.feedSession) return;
+  const now=Date.now();
+  const duration=Math.round((now-state.feedSession.startTime)/1000);
+  const segs=[...(state.feedSession.segments||[])];
+  segs.push({side:state.feedSession.side,duration:Math.round((now-(state.feedSession.currentSegmentStart||state.feedSession.startTime))/1000)});
+  const entry={id:now,type:'feed',startTime:state.feedSession.startTime,endTime:now,duration,side:state.feedSession.side};
+  if (segs.length>1) entry.segments=segs;
+  state.logs.unshift(entry); state.feedSession=null;
+  saveState(); updateNowPanel(); refreshHistory(); showToast('Feed saved — '+formatDur(duration)+' ✅');
 }
 
 function selectSide(side) {
-  feedSide = side;
-  ['left','both','right'].forEach(s => {
-    document.getElementById('side' + s.charAt(0).toUpperCase() + s.slice(1)).classList.toggle('selected-feed', s === side);
+  feedSide=side;
+  ['left','both','right'].forEach(s=>{
+    document.getElementById('side'+s.charAt(0).toUpperCase()+s.slice(1)).classList.toggle('sel',s===side);
   });
-  if (state.feedSession && state.feedSession.side !== side) {
-    const now = Date.now();
-    const segStart = state.feedSession.currentSegmentStart || state.feedSession.startTime;
-    if (!state.feedSession.segments) state.feedSession.segments = [];
-    state.feedSession.segments.push({ side: state.feedSession.side, duration: Math.round((now - segStart) / 1000) });
-    state.feedSession.currentSegmentStart = now;
-    state.feedSession.side = side;
-    updateFeedDetail(); saveState();
-  } else if (state.feedSession) {
-    state.feedSession.side = side; updateFeedDetail(); saveState();
-  }
+  if (state.feedSession&&state.feedSession.side!==side) {
+    const now=Date.now(), segStart=state.feedSession.currentSegmentStart||state.feedSession.startTime;
+    if (!state.feedSession.segments) state.feedSession.segments=[];
+    state.feedSession.segments.push({side:state.feedSession.side,duration:Math.round((now-segStart)/1000)});
+    state.feedSession.currentSegmentStart=now; state.feedSession.side=side; saveState();
+  } else if (state.feedSession) { state.feedSession.side=side; saveState(); }
 }
 
-function startFeed() {
-  if (state.feedSession) return;
-  const now = Date.now();
-  state.feedSession = { startTime: now, side: feedSide, segments: [], currentSegmentStart: now };
-  saveState();
-  document.getElementById('startFeedBtn').style.display = 'none';
-  document.getElementById('stopFeedBtn').style.display = 'flex';
-  document.getElementById('feedOptions').classList.add('show');
-  document.getElementById('feedActiveCard').classList.add('show');
-  document.getElementById('feedDot').classList.add('show');
-  selectSide(feedSide); startFeedTimer(); updateFeedDetail();
-  updateStartTimeDisplay('feed');
-  showToast('Feed started 🤱');
+function toggleSleep() {
+  if (state.sleepSession){stopSleep();}else{startSleep();}
+}
+function startSleep() {
+  if (state.sleepSession||state.feedSession) return;
+  state.sleepSession={startTime:Date.now()};
+  saveState(); updateNowPanel(); showToast('Sleep started 💤');
+}
+function stopSleep() {
+  if (!state.sleepSession) return;
+  const now=Date.now(), duration=Math.round((now-state.sleepSession.startTime)/1000);
+  state.logs.unshift({id:now,type:'sleep',startTime:state.sleepSession.startTime,endTime:now,duration});
+  state.sleepSession=null;
+  saveState(); updateNowPanel(); refreshHistory(); showToast('Sleep saved — '+formatDur(duration)+' ✅');
 }
 
-function stopFeed() {
-  if (!state.feedSession) return;
-  const now = Date.now();
-  const duration = Math.round((now - state.feedSession.startTime) / 1000);
-  const segs = [...(state.feedSession.segments || [])];
-  segs.push({ side: state.feedSession.side, duration: Math.round((now - (state.feedSession.currentSegmentStart || state.feedSession.startTime)) / 1000) });
-  const entry = { id: now, type: 'feed', startTime: state.feedSession.startTime, endTime: now, duration, side: state.feedSession.side };
-  if (segs.length > 1) entry.segments = segs;
-  state.logs.unshift(entry);
-  state.feedSession = null;
-  clearInterval(feedTimerInterval);
-  document.getElementById('startFeedBtn').style.display = 'flex';
-  document.getElementById('stopFeedBtn').style.display = 'none';
-  document.getElementById('feedOptions').classList.remove('show');
-  document.getElementById('feedActiveCard').classList.remove('show');
-  document.getElementById('feedDot').classList.remove('show');
-  document.getElementById('feedTimerDisplay').textContent = '00:00';
-  document.getElementById('feedBreakdown').textContent = '';
-  saveState(); refreshTodayList('feed');
-  showToast('Feed saved — ' + formatDuration(duration) + ' ✅');
+function openNappySheet() {
+  selNappyType('pee'); nappyColour='';
+  document.getElementById('nappyNotes').value='';
+  document.getElementById('nappySheet').classList.add('open');
+  document.getElementById('nappyOverlay').classList.add('show');
 }
-
-function startFeedTimer() {
-  clearInterval(feedTimerInterval);
-  feedTimerInterval = setInterval(() => {
-    if (!state.feedSession) { clearInterval(feedTimerInterval); return; }
-    document.getElementById('feedTimerDisplay').textContent = formatDuration(Math.round((Date.now() - state.feedSession.startTime) / 1000));
-    updateFeedDetail();
-  }, 1000);
+function closeNappySheet() {
+  document.getElementById('nappySheet').classList.remove('open');
+  document.getElementById('nappyOverlay').classList.remove('show');
 }
-
-function updateFeedDetail() {
-  if (!state.feedSession) return;
-  const labels = { left: '👈 Left side', right: '👉 Right side', both: '🔄 Both sides' };
-  document.getElementById('feedActiveDetail').textContent = labels[state.feedSession.side] || '–';
-  const breakdown = document.getElementById('feedBreakdown');
-  const segs = state.feedSession.segments || [];
-  if (!segs.length) { breakdown.textContent = ''; return; }
-  const totals = {};
-  segs.forEach(s => { totals[s.side] = (totals[s.side] || 0) + s.duration; });
-  const curDur = Math.round((Date.now() - (state.feedSession.currentSegmentStart || state.feedSession.startTime)) / 1000);
-  totals[state.feedSession.side] = (totals[state.feedSession.side] || 0) + curDur;
-  const parts = [];
-  if (totals.left)  parts.push('👈 ' + formatDuration(totals.left));
-  if (totals.both)  parts.push('🔄 ' + formatDuration(totals.both));
-  if (totals.right) parts.push('👉 ' + formatDuration(totals.right));
-  breakdown.textContent = parts.join(' · ');
+function selNappyType(t) {
+  nappyType=t; nappyColour='';
+  ['pee','poo','both'].forEach(x=>document.getElementById('nt-'+x).classList.toggle('sel',x===t));
+  updateColourGrid();
 }
-
-function showStartTimeEdit(type) {
-  const session = type === 'feed' ? state.feedSession : state.sleepSession;
-  if (!session) return;
-  const d = new Date(session.startTime);
-  document.getElementById(type + 'StartTimeInput').value = d.toTimeString().slice(0,5);
-  document.getElementById(type + 'StartTime').style.display = 'none';
-  const inp = document.getElementById(type + 'StartTimeInput');
-  inp.style.display = 'inline';
-  inp.focus();
-}
-
-function applyStartTimeEdit(type) {
-  const session = type === 'feed' ? state.feedSession : state.sleepSession;
-  if (!session) return;
-  const val = document.getElementById(type + 'StartTimeInput').value;
-  if (!val) { hideStartTimeEdit(type); return; }
-  const [h, m] = val.split(':').map(Number);
-  const d = new Date(); d.setHours(h, m, 0, 0);
-  let ts = d.getTime();
-  if (ts > Date.now()) ts -= 86400000;
-  session.startTime = ts;
-  if (type === 'feed' && (!session.segments || !session.segments.length)) {
-    session.currentSegmentStart = ts;
-  }
-  saveState();
-  hideStartTimeEdit(type);
-  updateStartTimeDisplay(type);
-}
-
-function hideStartTimeEdit(type) {
-  document.getElementById(type + 'StartTimeInput').style.display = 'none';
-  document.getElementById(type + 'StartTime').style.display = 'inline';
-}
-
-function updateStartTimeDisplay(type) {
-  const session = type === 'feed' ? state.feedSession : state.sleepSession;
-  const el = document.getElementById(type + 'StartTime');
-  if (el && session) el.textContent = new Date(session.startTime).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-}
-
-function selectNappy(type) {
-  nappyType = type;
-  ['pee','poo','both'].forEach(t => {
-    document.getElementById('nappy' + t.charAt(0).toUpperCase() + t.slice(1)).classList.toggle('selected-nappy', t === type);
-  });
-  nappyColour = ''; updateColourGrid();
-}
-
 function updateColourGrid() {
-  const grid = document.getElementById('colourGrid');
-  const colours = NAPPY_COLOURS[nappyType] || NAPPY_COLOURS['pee'];
-  grid.innerHTML = colours.map(c => `
-    <button class="colour-chip ${nappyColour === c.label ? 'selected' : ''}"
-      style="background:${c.bg}; color:${c.text}"
+  const colours=NAPPY_COLOURS[nappyType]||NAPPY_COLOURS.pee;
+  document.getElementById('colourGrid').innerHTML=colours.map(c=>`
+    <button class="colour-chip${nappyColour===c.label?' sel':''}"
+      style="background:${c.bg};color:${c.text}"
       onclick="selectColour('${c.label.replace(/'/g,"\\'")}')">  
       ${c.label}
     </button>
   `).join('');
 }
-
-function selectColour(label) { nappyColour = nappyColour === label ? '' : label; updateColourGrid(); }
-
+function selectColour(label) { nappyColour=nappyColour===label?'':label; updateColourGrid(); }
 function logNappy() {
-  state.logs.unshift({ id: Date.now(), type: 'nappy', startTime: Date.now(), nappyType, colour: nappyColour, notes: document.getElementById('nappyNotes').value.trim() });
-  saveState();
-  document.getElementById('nappyNotes').value = '';
-  refreshTodayList('nappy');
-  showToast('Nappy logged ✅');
+  state.logs.unshift({id:Date.now(),type:'nappy',startTime:Date.now(),nappyType,colour:nappyColour,notes:document.getElementById('nappyNotes').value.trim()});
+  saveState(); closeNappySheet(); updateNowPanel(); refreshHistory(); showToast('Nappy logged ✅');
 }
 
-function startSleep() {
-  if (state.sleepSession) return;
-  state.sleepSession = { startTime: Date.now() };
-  saveState();
-  document.getElementById('startSleepBtn').style.display = 'none';
-  document.getElementById('stopSleepBtn').style.display = 'flex';
-  document.getElementById('sleepActiveCard').classList.add('show');
-  document.getElementById('sleepDot').classList.add('show');
-  updateStartTimeDisplay('sleep');
-  startSleepTimer();
-  showToast('Sleep started 💤');
+function resizeCanvas() {
+  const canvas=document.getElementById('timelineCanvas');
+  const wrap=canvas.parentElement;
+  const dpr=window.devicePixelRatio||1;
+  const cssW=wrap.clientWidth-28;
+  canvas.width=cssW*dpr;
+  canvas.style.width=cssW+'px';
+  canvas.height=44*dpr;
+  canvas.style.height='44px';
+  drawTimeline();
 }
 
-function stopSleep() {
-  if (!state.sleepSession) return;
-  const duration = Math.round((Date.now() - state.sleepSession.startTime) / 1000);
-  state.logs.unshift({ id: Date.now(), type: 'sleep', startTime: state.sleepSession.startTime, endTime: Date.now(), duration });
-  state.sleepSession = null;
-  clearInterval(sleepTimerInterval);
-  document.getElementById('startSleepBtn').style.display = 'flex';
-  document.getElementById('stopSleepBtn').style.display = 'none';
-  document.getElementById('sleepActiveCard').classList.remove('show');
-  document.getElementById('sleepDot').classList.remove('show');
-  document.getElementById('sleepTimerDisplay').textContent = '00:00';
-  saveState(); refreshTodayList('sleep');
-  showToast('Sleep saved — ' + formatDuration(duration) + ' ✅');
+function setTLWindow(hours, btn) {
+  tlWindowHours=hours;
+  document.querySelectorAll('.tl-win-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  drawTimeline();
 }
 
-function startSleepTimer() {
-  clearInterval(sleepTimerInterval);
-  sleepTimerInterval = setInterval(() => {
-    if (!state.sleepSession) { clearInterval(sleepTimerInterval); return; }
-    document.getElementById('sleepTimerDisplay').textContent = formatDuration(Math.round((Date.now() - state.sleepSession.startTime) / 1000));
-  }, 1000);
-}
+function drawTimeline() {
+  const canvas=document.getElementById('timelineCanvas');
+  if (!canvas) return;
+  const ctx=canvas.getContext('2d');
+  const dpr=window.devicePixelRatio||1;
+  const W=canvas.width, H=canvas.height;
+  if (!W||!H) return;
 
-function restoreActiveSessions() {
+  const now=Date.now();
+  const windowMs=tlWindowHours*3600000;
+  const startTs=now-windowMs;
+  const toX=ts=>Math.max(0,Math.min(W,((ts-startTs)/windowMs)*W));
+  const R=6*dpr;
+
+  ctx.fillStyle='#22223A';
+  ctx.beginPath();
+  ctx.roundRect(0,0,W,H,R);
+  ctx.fill();
+
+  const py=4*dpr, ph=H-8*dpr;
+
+  const relevant=state.logs.filter(l=>(l.endTime||now)>=startTs&&l.startTime<=now);
+  relevant.forEach(log=>{
+    const x1=toX(log.startTime), x2=toX(log.endTime||now);
+    if (log.type==='feed') {
+      ctx.fillStyle='#FF6B9D';
+      ctx.fillRect(x1,py,x2-x1,ph);
+    } else if (log.type==='sleep') {
+      ctx.fillStyle='#5B9CF6';
+      ctx.fillRect(x1,py,x2-x1,ph);
+    } else if (log.type==='nappy') {
+      ctx.fillStyle='#FFB347';
+      ctx.fillRect(Math.max(0,toX(log.startTime)-dpr),0,3*dpr,H);
+    }
+  });
+
   if (state.feedSession) {
-    if (!state.feedSession.segments) state.feedSession.segments = [];
-    if (!state.feedSession.currentSegmentStart) state.feedSession.currentSegmentStart = state.feedSession.startTime;
-    document.getElementById('startFeedBtn').style.display = 'none';
-    document.getElementById('stopFeedBtn').style.display = 'flex';
-    document.getElementById('feedOptions').classList.add('show');
-    document.getElementById('feedActiveCard').classList.add('show');
-    document.getElementById('feedDot').classList.add('show');
-    feedSide = state.feedSession.side || 'left';
-    selectSide(feedSide); startFeedTimer(); updateFeedDetail(); updateStartTimeDisplay('feed');
+    const x1=toX(state.feedSession.startTime);
+    ctx.fillStyle='#FF6B9D';
+    ctx.fillRect(x1,py,W-x1,ph);
+    const grad=ctx.createLinearGradient(W-20*dpr,0,W,0);
+    grad.addColorStop(0,'rgba(255,107,157,0)');
+    grad.addColorStop(1,'rgba(255,200,220,0.7)');
+    ctx.fillStyle=grad;
+    ctx.fillRect(Math.max(x1,W-20*dpr),py,20*dpr,ph);
   }
   if (state.sleepSession) {
-    document.getElementById('startSleepBtn').style.display = 'none';
-    document.getElementById('stopSleepBtn').style.display = 'flex';
-    document.getElementById('sleepActiveCard').classList.add('show');
-    document.getElementById('sleepDot').classList.add('show');
-    updateStartTimeDisplay('sleep');
-    startSleepTimer();
+    const x1=toX(state.sleepSession.startTime);
+    ctx.fillStyle='#5B9CF6';
+    ctx.fillRect(x1,py,W-x1,ph);
+    const grad=ctx.createLinearGradient(W-20*dpr,0,W,0);
+    grad.addColorStop(0,'rgba(91,156,246,0)');
+    grad.addColorStop(1,'rgba(160,210,255,0.7)');
+    ctx.fillStyle=grad;
+    ctx.fillRect(Math.max(x1,W-20*dpr),py,20*dpr,ph);
   }
+
+  ctx.fillStyle='rgba(255,255,255,0.75)';
+  ctx.fillRect(W-2*dpr,0,2*dpr,H);
+
+  const numTicks=4;
+  const tickInterval=windowMs/numTicks;
+  const ticks=[];
+  for (let i=0;i<=numTicks;i++) {
+    ticks.push(new Date(startTs+i*tickInterval).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}));
+  }
+  document.getElementById('tlTicks').innerHTML=ticks.map(t=>`<span class="tl-tick">${t}</span>`).join('');
 }
 
-function setFilter(f, el) {
-  historyFilter = f;
-  document.querySelectorAll('.filter-tab').forEach(t => {
-    t.classList.remove('active-tab');
-    if (!el && t.getAttribute('onclick') && t.getAttribute('onclick').includes("'" + f + "'")) t.classList.add('active-tab');
-  });
-  if (el) el.classList.add('active-tab');
+function setFilter(f,el) {
+  historyFilter=f;
+  document.querySelectorAll('.ftab').forEach(t=>t.classList.remove('active'));
+  if (el) el.classList.add('active');
   refreshHistory();
 }
-
-function toggleSortOrder() {
-  sortAsc = !sortAsc;
-  const label = sortAsc ? '↑ Oldest first' : '↓ Newest first';
-  document.querySelectorAll('.sort-toggle-btn').forEach(b => b.textContent = label);
+function toggleSort() {
+  sortAsc=!sortAsc;
+  document.querySelector('.sort-btn').textContent=sortAsc?'↑ Oldest':'↓ Newest';
   refreshHistory();
-  refreshTodayList('feed'); refreshTodayList('nappy'); refreshTodayList('sleep');
 }
-
 function refreshHistory() {
-  refreshStats();
-  const list = document.getElementById('historyList');
-  let filtered = historyFilter === 'all' ? state.logs : state.logs.filter(l => l.type === historyFilter);
-  if (!filtered.length) { list.innerHTML = '<div class="empty-state"><span class="empty-emoji">📭</span>No entries yet</div>'; return; }
-  if (sortAsc) filtered = [...filtered].reverse();
-  list.innerHTML = filtered.map(log => renderHistoryItem(log)).join('');
+  const list=document.getElementById('historyList');
+  let filtered=historyFilter==='all'?state.logs:state.logs.filter(l=>l.type===historyFilter);
+  if (!filtered.length){list.innerHTML='<div class="empty-state"><span class="empty-emoji">📭</span>No entries yet</div>';return;}
+  if (sortAsc) filtered=[...filtered].reverse();
+  list.innerHTML=filtered.map(renderItem).join('');
 }
-
-function renderHistoryItem(log) {
-  const time = new Date(log.startTime);
-  const timeStr = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  const dateStr = time.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
-  let icon, title, detail;
-  if (log.type === 'feed') {
-    icon = '🤱'; title = 'Feed';
-    if (log.segments && log.segments.length > 1) {
-      const totals = {};
-      log.segments.forEach(s => { totals[s.side] = (totals[s.side] || 0) + s.duration; });
-      const parts = [];
-      if (totals.left)  parts.push('👈 ' + formatDuration(totals.left));
-      if (totals.both)  parts.push('🔄 ' + formatDuration(totals.both));
-      if (totals.right) parts.push('👉 ' + formatDuration(totals.right));
-      detail = parts.join(' → ') + (log.duration ? ' · ' + formatDuration(log.duration) + ' total' : '');
+function renderItem(log) {
+  const t=new Date(log.startTime);
+  const timeStr=t.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  const dateStr=t.toLocaleDateString([],{weekday:'short',day:'numeric',month:'short'});
+  let icon,title,detail;
+  if (log.type==='feed') {
+    icon='🤱'; title='Feed';
+    if (log.segments&&log.segments.length>1) {
+      const tots={};
+      log.segments.forEach(s=>{tots[s.side]=(tots[s.side]||0)+s.duration;});
+      const parts=[];
+      if(tots.left)parts.push('👈 '+formatDur(tots.left));
+      if(tots.both)parts.push('🔄 '+formatDur(tots.both));
+      if(tots.right)parts.push('👉 '+formatDur(tots.right));
+      detail=parts.join(' → ')+(log.duration?' · '+formatDur(log.duration)+' total':'');
     } else {
-      const sides = { left: '👈 Left', right: '👉 Right', both: '🔄 Both' };
-      detail = (sides[log.side] || '') + (log.duration ? ' · ' + formatDuration(log.duration) : '');
+      const sides={left:'👈 Left',right:'👉 Right',both:'🔄 Both'};
+      detail=(sides[log.side]||'')+(log.duration?' · '+formatDur(log.duration):'');
     }
-  } else if (log.type === 'nappy') {
-    icon = '🩲'; title = 'Nappy';
-    const types = { pee: '💛 Pee', poo: '💩 Poo', both: '💛💩 Pee & Poo' };
-    detail = (types[log.nappyType] || '') + (log.colour ? ' · ' + log.colour : '') + (log.notes ? ' · ' + log.notes : '');
-  } else if (log.type === 'sleep') {
-    icon = '😴'; title = 'Sleep';
-    detail = log.duration ? formatDuration(log.duration) : 'In progress';
+  } else if (log.type==='nappy') {
+    icon='🩲'; title='Nappy';
+    const types={pee:'💛 Pee',poo:'💩 Poo',both:'💛💩 Both'};
+    detail=(types[log.nappyType]||'')+(log.colour?' · '+log.colour:'')+(log.notes?' · '+log.notes:'');
+  } else if (log.type==='sleep') {
+    icon='😴'; title='Sleep';
+    detail=log.duration?formatDur(log.duration):'In progress';
   }
-  const pastBadge = (log.retro && log.startTime < Date.now()) ? ' <span style="font-size:10px;background:var(--border);padding:2px 7px;border-radius:10px;color:var(--text-soft);font-weight:700;vertical-align:middle">past</span>' : '';
-  return `
-    <div class="history-item" id="log-${log.id}">
-      <div class="history-icon ${log.type}">${icon}</div>
-      <div class="history-text">
-        <div class="history-type">${title}${pastBadge}</div>
-        <div class="history-detail">${detail || '–'}</div>
-      </div>
-      <div style="text-align:right">
-        <div class="history-time">${timeStr}<br><span style="font-size:11px;color:var(--text-lighter)">${dateStr}</span></div>
-        <div style="display:flex;gap:0;justify-content:flex-end;margin-top:5px">
-          <button class="history-edit" onclick="editLog(${log.id})">✏️</button>
-          <button class="history-delete" onclick="deleteLog(${log.id})">✕</button>
-        </div>
+  const pastBadge=log.retro?` <span style="font-size:10px;background:var(--card2);padding:1px 6px;border-radius:8px;color:var(--text-soft)">past</span>`:'';
+  return `<div class="history-item" id="log-${log.id}">
+    <div class="hi-icon ${log.type}">${icon}</div>
+    <div class="hi-text">
+      <div class="hi-type">${title}${pastBadge}</div>
+      <div class="hi-detail">${detail||'–'}</div>
+    </div>
+    <div style="text-align:right">
+      <div class="hi-time">${timeStr}<br><span style="font-size:10px;color:var(--text-muted)">${dateStr}</span></div>
+      <div class="hi-actions">
+        <button class="hi-btn" onclick="editLog(${log.id})">✏️</button>
+        <button class="hi-btn" onclick="deleteLog(${log.id})">✕</button>
       </div>
     </div>
-  `;
+  </div>`;
 }
-
+function deleteLog(id) {
+  state.logs=state.logs.filter(l=>l.id!==id);
+  saveState(); refreshHistory(); updateNowPanel(); showToast('Entry deleted');
+}
 function editLog(id) {
-  const log = state.logs.find(l => l.id === id);
-  if (!log) return;
-  editingLogId = id;
-  document.querySelector('#retroModal .modal-title').textContent = '✏️ Edit Entry';
-  const d = new Date(log.startTime);
-  const dateStr = d.toISOString().slice(0,10);
-  const timeStr = d.toTimeString().slice(0,5);
-  ['rf-date','rn-date','rs-date','rs-end-date'].forEach(fid => { const el = document.getElementById(fid); if (el) el.value = dateStr; });
-  ['rf-start','rn-time','rs-start','rs-end'].forEach(fid => { const el = document.getElementById(fid); if (el) el.value = ''; });
-  document.getElementById('rf-duration').value = '';
-  document.getElementById('rn-notes').value = '';
+  const log=state.logs.find(l=>l.id===id); if (!log) return;
+  editingLogId=id;
+  document.getElementById('retroModalTitle').textContent='✏️ Edit Entry';
+  const d=new Date(log.startTime), ds=d.toISOString().slice(0,10), ts=d.toTimeString().slice(0,5);
+  ['rf-date','rn-date','rs-date','rs-end-date'].forEach(fid=>{const el=document.getElementById(fid);if(el)el.value=ds;});
+  ['rf-start','rn-time','rs-start','rs-end'].forEach(fid=>{const el=document.getElementById(fid);if(el)el.value='';});
+  document.getElementById('rf-duration').value='';
   setRetroType(log.type);
-  if (log.type === 'feed') {
-    document.getElementById('rf-start').value = timeStr;
-    document.getElementById('rf-duration').value = log.duration ? Math.round(log.duration / 60) : '';
-    document.getElementById('rf-side').value = log.side || 'left';
-  } else if (log.type === 'nappy') {
-    document.getElementById('rn-time').value = timeStr;
-    document.getElementById('rn-type').value = log.nappyType || 'pee';
-    updateRetroColours();
-    document.getElementById('rn-colour').value = log.colour || '';
-    document.getElementById('rn-notes').value = log.notes || '';
-  } else if (log.type === 'sleep') {
-    document.getElementById('rs-start').value = timeStr;
-    if (log.endTime) {
-      const endD = new Date(log.endTime);
-      document.getElementById('rs-end-date').value = endD.toISOString().slice(0,10);
-      document.getElementById('rs-end').value = endD.toTimeString().slice(0,5);
-    }
-  }
+  if (log.type==='feed'){document.getElementById('rf-start').value=ts;document.getElementById('rf-duration').value=log.duration?Math.round(log.duration/60):'';document.getElementById('rf-side').value=log.side||'left';}
+  else if (log.type==='nappy'){document.getElementById('rn-time').value=ts;document.getElementById('rn-type').value=log.nappyType||'pee';updateRetroColours();document.getElementById('rn-colour').value=log.colour||'';}
+  else if (log.type==='sleep'){document.getElementById('rs-start').value=ts;if(log.endTime){const ed=new Date(log.endTime);document.getElementById('rs-end-date').value=ed.toISOString().slice(0,10);document.getElementById('rs-end').value=ed.toTimeString().slice(0,5);}}
   document.getElementById('retroModal').classList.add('open');
 }
 
-function deleteLog(id) {
-  state.logs = state.logs.filter(l => l.id !== id);
-  saveState(); refreshHistory();
-  showToast('Entry deleted');
+function openRetroModal(type) {
+  editingLogId=null;
+  document.getElementById('retroModalTitle').textContent='✏️ Add Past Entry';
+  retroType=type||'feed';
+  const now=new Date(), ds=now.toISOString().slice(0,10), ts=now.toTimeString().slice(0,5);
+  ['rf-date','rn-date','rs-date','rs-end-date'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=ds;});
+  ['rf-start','rn-time','rs-start','rs-end'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=ts;});
+  document.getElementById('rf-duration').value='';
+  document.getElementById('rf-side').value='left';
+  document.getElementById('rn-type').value='pee';
+  updateRetroColours(); setRetroType(retroType);
+  document.getElementById('retroModal').classList.add('open');
 }
-
-function refreshStats() {
-  const today = new Date(); today.setHours(0,0,0,0);
-  const todayTs = today.getTime();
-  const tl = state.logs.filter(l => l.startTime >= todayTs);
-  const feeds = tl.filter(l => l.type === 'feed');
-  const nappies = tl.filter(l => l.type === 'nappy');
-  const sleeps = tl.filter(l => l.type === 'sleep');
-  const sleepSecs = sleeps.reduce((a, l) => a + (l.duration || 0), 0);
-  document.getElementById('statsGrid').innerHTML = `
-    <div class="stat-card feed"><div class="stat-num">${feeds.length}</div><div class="stat-label">Feeds today</div></div>
-    <div class="stat-card nappy"><div class="stat-num">${nappies.length}</div><div class="stat-label">Nappies today</div></div>
-    <div class="stat-card sleep" style="grid-column:1/-1"><div class="stat-num">${formatDuration(sleepSecs)}</div><div class="stat-label">Sleep today</div></div>
-  `;
+function closeRetroModal() {
+  document.getElementById('retroModal').classList.remove('open'); editingLogId=null;
+  document.getElementById('retroModalTitle').textContent='✏️ Add Past Entry';
 }
-
-function refreshTodayList(type) {
-  const today = new Date(); today.setHours(0,0,0,0);
-  const todayTs = today.getTime();
-  let logs = state.logs.filter(l => l.type === type && l.startTime >= todayTs);
-  const allCount = state.logs.filter(l => l.type === type).length;
-  const statsEl = document.getElementById(type + 'TodayStats');
-  if (statsEl) statsEl.textContent = `Today: ${logs.length}  ·  All time: ${allCount}`;
-  renderHeatmap(type);
-  const el = document.getElementById(type + 'TodayList');
-  if (!logs.length) { el.innerHTML = '<div class="empty-state" style="padding:20px"><span class="empty-emoji" style="font-size:32px">📭</span>None logged yet today</div>'; return; }
-  if (sortAsc) logs = [...logs].reverse();
-  el.innerHTML = logs.map(log => renderHistoryItem(log)).join('');
-}
-
-function renderHeatmap(type) {
-  const el = document.getElementById(type + 'Heatmap');
-  if (!el) return;
-  const now = new Date();
-  const today = new Date(now); today.setHours(0,0,0,0);
-  const clr = {
-    feed:  { on: '#F2A7C3', dark: '#D4729A' },
-    nappy: { on: '#F5C060', dark: '#D4932A' },
-    sleep: { on: '#8BA7D4', dark: '#5878B0' },
-  }[type];
-  const cutoff = new Date(today); cutoff.setDate(cutoff.getDate() - 2);
-  const cutoffTs = cutoff.getTime();
-  const grid = Array.from({length:3}, () => Array.from({length:24}, () => []));
-  state.logs.filter(l => l.type === type && l.startTime >= cutoffTs).forEach(log => {
-    const d = new Date(log.startTime); d.setHours(0,0,0,0);
-    const di = Math.round((d.getTime() - cutoffTs) / 86400000);
-    if (di >= 0 && di < 3) grid[di][new Date(log.startTime).getHours()].push(log.id);
+function handleRetroOverlayClick(e){if(e.target===document.getElementById('retroModal'))closeRetroModal();}
+function setRetroType(type) {
+  retroType=type;
+  ['feed','nappy','sleep'].forEach(t=>{
+    document.getElementById('rtab-'+t).className='rtab'+(t===type?' sel-'+type:'');
+    document.getElementById('rfields-'+t).className='rfields'+(t===type?' show':'');
   });
-  const curHour = now.getHours();
-  const dayLabels = [2,1,0].reverse().map(ago => {
-    if (ago === 0) return 'Today';
-    if (ago === 1) return 'Yest.';
-    const d = new Date(today); d.setDate(d.getDate() - ago);
-    return d.toLocaleDateString([], {weekday:'short'});
-  });
-  let html = '<div style="background:var(--warm-white);border:1px solid var(--border);border-radius:12px;padding:10px 12px">';
-  html += '<div style="font-size:10px;font-weight:700;color:var(--text-soft);text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px">72-hour activity</div>';
-  html += '<div style="display:flex;padding-left:42px;margin-bottom:3px;gap:0">';
-  ['12am','6am','12pm','6pm'].forEach(lbl => {
-    html += `<div style="flex:6;font-size:9px;color:var(--text-lighter);font-weight:600">${lbl}</div>`;
-  });
-  html += '</div>';
-  for (let d = 0; d < 3; d++) {
-    html += `<div style="display:flex;align-items:center;gap:2px;margin-bottom:2px">`;
-    html += `<div style="width:38px;font-size:10px;color:var(--text-soft);font-weight:700;flex-shrink:0">${dayLabels[d]}</div>`;
-    for (let h = 0; h < 24; h++) {
-      const ids = grid[d][h];
-      const isFuture = d === 2 && h > curHour;
-      const bg = isFuture ? 'var(--cream)' : ids.length > 1 ? clr.dark : ids.length === 1 ? clr.on : 'var(--warm-white)';
-      const border = isFuture ? 'var(--cream)' : ids.length > 0 ? clr.dark : 'var(--border)';
-      const click = ids.length ? `onclick="gotoHourEntry('${type}',${d},${h})"` : '';
-      const cur = ids.length ? 'cursor:pointer;' : '';
-      html += `<div ${click} style="${cur}flex:1;height:14px;background:${bg};border:1px solid ${border};border-radius:2px;min-width:0"></div>`;
-    }
-    html += '</div>';
-  }
-  html += '</div>';
-  el.innerHTML = html;
+}
+function updateRetroColours() {
+  const type=document.getElementById('rn-type').value;
+  const cols=RETRO_COLOURS[type]||RETRO_COLOURS.pee;
+  document.getElementById('rn-colour').innerHTML='<option value="">— not recorded —</option>'+cols.map(c=>`<option value="${c}">${c}</option>`).join('');
+}
+function saveRetroEntry() {
+  const isEditing=editingLogId!==null; let entry;
+  if (retroType==='feed'){
+    const dv=document.getElementById('rf-date').value,tv=document.getElementById('rf-start').value;
+    if(!dv||!tv){showToast('Please set a date and time');return;}
+    const st=new Date(dv+'T'+tv).getTime();
+    const dur=Math.round((parseFloat(document.getElementById('rf-duration').value)||0)*60);
+    entry={type:'feed',startTime:st,endTime:dur?st+dur*1000:st,duration:dur,side:document.getElementById('rf-side').value,retro:true};
+  } else if (retroType==='nappy'){
+    const dv=document.getElementById('rn-date').value,tv=document.getElementById('rn-time').value;
+    if(!dv||!tv){showToast('Please set a date and time');return;}
+    entry={type:'nappy',startTime:new Date(dv+'T'+tv).getTime(),nappyType:document.getElementById('rn-type').value,colour:document.getElementById('rn-colour').value,retro:true};
+  } else if (retroType==='sleep'){
+    const dv=document.getElementById('rs-date').value,sv=document.getElementById('rs-start').value;
+    if(!dv||!sv){showToast('Please set a start date and time');return;}
+    const st=new Date(dv+'T'+sv).getTime();
+    const edv=document.getElementById('rs-end-date').value||dv,ev=document.getElementById('rs-end').value;
+    let et=null,dur=0;
+    if(ev){et=new Date(edv+'T'+ev).getTime();if(et<=st){showToast('Wake time must be after sleep start');return;}dur=Math.round((et-st)/1000);}
+    entry={type:'sleep',startTime:st,endTime:et,duration:dur,retro:true};
+  } else return;
+  if(isEditing){entry.id=editingLogId;const idx=state.logs.findIndex(l=>l.id===editingLogId);if(idx!==-1)state.logs[idx]=entry;}
+  else{entry.id=Date.now()+Math.random();state.logs.push(entry);}
+  state.logs.sort((a,b)=>b.startTime-a.startTime);
+  saveState(); closeRetroModal(); refreshHistory(); updateNowPanel();
+  showToast(isEditing?'Entry updated ✅':'Past entry saved ✅');
 }
 
-function gotoHourEntry(type, dayIdx, hour) {
-  const today = new Date(); today.setHours(0,0,0,0);
-  const dayStart = new Date(today); dayStart.setDate(dayStart.getDate() - (2 - dayIdx));
-  const startTs = dayStart.getTime() + hour * 3600000;
-  const matches = state.logs.filter(l => l.type === type && l.startTime >= startTs && l.startTime < startTs + 3600000);
-  if (!matches.length) return;
-  setFilter(type, null);
-  showPanel('history');
-  setTimeout(() => {
-    const logEl = document.getElementById('log-' + matches[0].id);
-    if (logEl) {
-      logEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      logEl.classList.add('log-flash');
-      setTimeout(() => logEl.classList.remove('log-flash'), 1400);
-    }
-  }, 150);
+function getTypicalMs(type,ageDays) {
+  if(ageDays==null)return null;
+  const h=hrs=>hrs*3600000;
+  if(type==='feed'){if(ageDays<14)return h(2.5);if(ageDays<28)return h(3);if(ageDays<60)return h(3.5);if(ageDays<90)return h(4);if(ageDays<150)return h(4.5);if(ageDays<180)return h(5);return h(4);}
+  if(type==='nappy'){if(ageDays<28)return h(2);if(ageDays<90)return h(2.5);if(ageDays<180)return h(3);return h(3.5);}
+  if(type==='sleep'){if(ageDays<28)return h(1.5);if(ageDays<56)return h(2);if(ageDays<90)return h(2.5);if(ageDays<120)return h(3);if(ageDays<180)return h(3.5);return h(4.5);}
+  return null;
 }
-
 function refreshTrends() {
-  const panel = document.getElementById('trendsContent');
-  if (!panel) return;
-
-  const ageDays = getAgeInDays();
-
-  function computeTrend(type) {
-    const logs = state.logs.filter(l => l.type === type).slice().sort((a,b) => a.startTime - b.startTime);
-    const typical = getTypicalIntervalMs(type, ageDays);
-    if (!logs.length) return { avgMs: null, blendedMs: typical, last: null, nextMs: null, count: 0, typical };
-    const intervals = [];
-    for (let i = 1; i < logs.length; i++) intervals.push(logs[i].startTime - logs[i-1].startTime);
-    const actualAvg = intervals.length ? intervals.reduce((a,b) => a+b, 0) / intervals.length : null;
-    let blendedMs = actualAvg;
-    if (typical != null && actualAvg != null) {
-      const w = Math.min(intervals.length / 8, 1);
-      blendedMs = w * actualAvg + (1 - w) * typical;
-    } else if (actualAvg == null) {
-      blendedMs = typical;
+  const panel=document.getElementById('trendsContent'), ageDays=getAgeInDays(), now=Date.now();
+  const types=[{type:'feed',emoji:'🤱',label:'Feeds',color:'var(--feed)'},{type:'nappy',emoji:'🩲',label:'Nappies',color:'var(--nappy)'},{type:'sleep',emoji:'😴',label:'Sleeps',color:'var(--sleep)'}];
+  function computeTrend(type){
+    const logs=state.logs.filter(l=>l.type===type).slice().sort((a,b)=>a.startTime-b.startTime);
+    const typical=getTypicalMs(type,ageDays);
+    if(!logs.length)return{avgMs:null,blended:typical,last:null,next:null,count:0,typical};
+    const intervals=[];
+    for(let i=1;i<logs.length;i++)intervals.push(logs[i].startTime-logs[i-1].startTime);
+    const actualAvg=intervals.length?intervals.reduce((a,b)=>a+b,0)/intervals.length:null;
+    let blended=actualAvg;
+    if(typical!=null&&actualAvg!=null){const w=Math.min(intervals.length/8,1);blended=w*actualAvg+(1-w)*typical;}
+    else if(actualAvg==null)blended=typical;
+    const last=logs[logs.length-1];
+    return{avgMs:actualAvg,blended,last,next:blended!=null?last.startTime+blended:null,count:logs.length,typical};
+  }
+  function fmtMs(ms){if(ms==null)return'–';const h=Math.floor(ms/3600000),m=Math.floor((ms%3600000)/60000);return h>0?`${h}h ${m}m`:`${m}m`;}
+  function fmtNext(ts){
+    if(ts==null)return'<span style="color:var(--text-muted)">No data yet</span>';
+    const diff=ts-now,abs=Math.abs(diff),h=Math.floor(abs/3600000),m=Math.floor((abs%3600000)/60000);
+    const rel=h>0?`${h}h ${m}m`:`${m}m`,time=fmtTime(ts);
+    if(diff<0)return`${time} <span style="color:#FF6B6B;font-size:11px">(${rel} overdue)</span>`;
+    if(diff<30*60000)return`${time} <span style="color:var(--nappy);font-size:11px">(in ${rel})</span>`;
+    return`${time} <span style="color:#4CAF50;font-size:11px">(in ${rel})</span>`;
+  }
+  const ageNote=ageDays!=null
+    ?`<div style="color:var(--text-muted);font-size:12px;margin-bottom:14px">Blending your data with age-typical for a ${formatAge(ageDays)}.</div>`
+    :`<div style="color:var(--text-muted);font-size:12px;margin-bottom:14px">Add date of birth in More for age-adjusted predictions.</div>`;
+  panel.innerHTML=ageNote+types.map(({type,emoji,label,color})=>{
+    const t=computeTrend(type);
+    const bc=!t.last?'var(--border)':(t.next&&t.next<now)?'#FF6B6B':(t.next&&t.next-now<30*60000)?'var(--nappy)':'#4CAF50';
+    let vsBar='';
+    if(t.avgMs!=null&&t.typical!=null){
+      const pct=Math.round((t.avgMs/t.typical-1)*100);
+      const c=pct<-15?'#FF6B6B':pct>15?'#4CAF50':'var(--nappy)';
+      const note=pct<-15?'more frequent than typical':pct>15?'less frequent than typical':'close to typical';
+      vsBar=`<div style="background:var(--bg);border-radius:8px;padding:7px 10px;margin-bottom:10px;display:flex;align-items:center;gap:8px"><div style="font-family:'Nunito',sans-serif;font-weight:900;font-size:17px;color:${c}">${pct>0?'+':''}${pct}%</div><div style="font-size:11px;color:var(--text-soft);font-weight:600">${note}</div></div>`;
     }
-    const last = logs[logs.length - 1];
-    const nextMs = blendedMs != null ? last.startTime + blendedMs : null;
-    return { avgMs: actualAvg, blendedMs, last, nextMs, count: logs.length, typical };
-  }
-
-  const now = Date.now();
-
-  function fmtInterval(ms) {
-    if (ms == null) return '–';
-    const h = Math.floor(ms / 3600000);
-    const m = Math.floor((ms % 3600000) / 60000);
-    return h > 0 ? `${h}h ${m}m` : `${m}m`;
-  }
-
-  function fmtTime(ts) {
-    return new Date(ts).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-  }
-
-  function fmtNext(ts) {
-    if (ts == null) return '<span style="color:var(--text-lighter)">No data yet</span>';
-    const diff = ts - now;
-    const abs = Math.abs(diff);
-    const h = Math.floor(abs / 3600000);
-    const m = Math.floor((abs % 3600000) / 60000);
-    const rel = h > 0 ? `${h}h ${m}m` : `${m}m`;
-    const time = fmtTime(ts);
-    if (diff < 0) return `${time} <span style="color:#E05252;font-size:12px">(${rel} overdue)</span>`;
-    if (diff < 30 * 60000) return `${time} <span style="color:#D4932A;font-size:12px">(in ${rel})</span>`;
-    return `${time} <span style="color:#2E9E6A;font-size:12px">(in ${rel})</span>`;
-  }
-
-  function borderColor(nextMs, hasLast) {
-    if (!hasLast || nextMs == null) return 'var(--border)';
-    const diff = nextMs - now;
-    if (diff < 0) return '#E05252';
-    if (diff < 30 * 60000) return '#D4932A';
-    return '#2E9E6A';
-  }
-
-  const types = [
-    { type: 'feed',  emoji: '🤱', label: 'Feeds',   bg: 'var(--feed-bg)' },
-    { type: 'nappy', emoji: '🩲', label: 'Nappies', bg: 'var(--nappy-bg)' },
-    { type: 'sleep', emoji: '😴', label: 'Sleeps',  bg: 'var(--sleep-bg)' },
-  ];
-
-  const ageNote = ageDays != null ? `<div style="color:var(--text-lighter);font-size:12px;margin-bottom:16px">Predictions blend your actual data with age-typical intervals for a ${formatAge(ageDays)}. The more data you log, the less the age baseline matters.</div>` : '<div style="color:var(--text-lighter);font-size:12px;margin-bottom:16px">Add a date of birth in Summary → Baby Info to get age-adjusted predictions.</div>';
-
-  panel.innerHTML = ageNote + types.map(({ type, emoji, label, bg }) => {
-    const t = computeTrend(type);
-    const bc = borderColor(t.nextMs, !!t.last);
-
-    let vsBar = '';
-    if (t.avgMs != null && t.typical != null) {
-      const ratio = t.avgMs / t.typical;
-      const pct = Math.round((ratio - 1) * 100);
-      const absP = Math.abs(pct);
-      const barColor = pct < -15 ? '#E05252' : pct > 15 ? '#2E9E6A' : '#D4932A';
-      const sign = pct > 0 ? '+' : '';
-      const note = pct < -15 ? 'more frequent than typical' : pct > 15 ? 'less frequent than typical' : 'close to age-typical';
-      vsBar = `<div style="background:var(--cream);border-radius:8px;padding:8px 10px;margin-bottom:10px;display:flex;align-items:center;gap:10px">
-        <div style="font-size:18px;font-family:'Nunito',sans-serif;font-weight:900;color:${barColor}">${sign}${pct}%</div>
-        <div style="font-size:12px;color:var(--text-soft);font-weight:600">${note}</div>
-      </div>`;
-    }
-
-    return `<div class="card" style="background:${bg};border-left:4px solid ${bc};margin-bottom:12px">
-      <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:16px;margin-bottom:10px">${emoji} ${label}</div>
+    return`<div class="trend-card" style="border-left-color:${bc}">
+      <div class="trend-title" style="color:${color}">${emoji} ${label}</div>
       ${vsBar}
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div><div style="color:var(--text-soft);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">All time</div><div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:18px">${t.count}</div></div>
-        <div><div style="color:var(--text-soft);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Your avg interval</div><div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:18px">${fmtInterval(t.avgMs)}</div></div>
-        ${t.typical != null ? `<div style="grid-column:1/-1"><div style="color:var(--text-soft);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Age-typical interval</div><div style="font-weight:700;font-size:15px">${fmtInterval(t.typical)}</div></div>` : ''}
-        <div><div style="color:var(--text-soft);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Last</div><div style="font-weight:700;font-size:15px">${t.last ? fmtTime(t.last.startTime) : '–'}</div></div>
-        <div><div style="color:var(--text-soft);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Next predicted</div><div style="font-weight:700;font-size:15px">${fmtNext(t.nextMs)}</div></div>
+      <div class="trend-grid">
+        <div><div class="trend-item-label">All time</div><div class="trend-item-val">${t.count}</div></div>
+        <div><div class="trend-item-label">Your avg</div><div class="trend-item-val">${fmtMs(t.avgMs)}</div></div>
+        ${t.typical!=null?`<div style="grid-column:1/-1"><div class="trend-item-label">Age-typical</div><div class="trend-item-val" style="font-size:15px">${fmtMs(t.typical)}</div></div>`:''}
+        <div><div class="trend-item-label">Last</div><div class="trend-item-val" style="font-size:15px">${t.last?fmtTime(t.last.startTime):'–'}</div></div>
+        <div><div class="trend-item-label">Next predicted</div><div class="trend-item-val" style="font-size:13px;font-weight:700">${fmtNext(t.next)}</div></div>
       </div>
     </div>`;
   }).join('');
 }
 
-function refreshAll() {
-  refreshTodayList('feed'); refreshTodayList('nappy'); refreshTodayList('sleep');
-  refreshStats(); refreshHistory(); refreshTrends(); updateColourGrid(); selectNappy(nappyType);
-}
-
 function exportData() {
-  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = `baby-tracker-${new Date().toISOString().slice(0,10)}.json`; a.click();
-  URL.revokeObjectURL(url);
-  showToast('Data exported ⬆️');
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob), a=document.createElement('a');
+  a.href=url; a.download=`baby-tracker-${new Date().toISOString().slice(0,10)}.json`; a.click();
+  URL.revokeObjectURL(url); showToast('Data exported ✅');
 }
-
 function importData(event) {
-  const file = event.target.files[0]; if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
+  const file=event.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=e=>{
     try {
-      const imported = JSON.parse(e.target.result);
-      if (!imported.logs) throw new Error();
-      const existingIds = new Set(state.logs.map(l => l.id));
-      const newLogs = imported.logs.filter(l => !existingIds.has(l.id));
-      state.logs = [...state.logs, ...newLogs].sort((a, b) => b.startTime - a.startTime);
-      if (imported.babyName) { state.babyName = imported.babyName; document.getElementById('babyNameDisplay').textContent = state.babyName; }
-      saveState(); refreshAll();
-      showToast(`Imported ${newLogs.length} entries ✅`);
-    } catch(err) { showToast('❌ Invalid file format'); }
+      const imp=JSON.parse(e.target.result); if(!imp.logs) throw new Error();
+      const existing=new Set(state.logs.map(l=>l.id));
+      const newLogs=imp.logs.filter(l=>!existing.has(l.id));
+      state.logs=[...state.logs,...newLogs].sort((a,b)=>b.startTime-a.startTime);
+      if(imp.babyName){state.babyName=imp.babyName;document.getElementById('babyNameDisplay').textContent=state.babyName;}
+      saveState(); refreshHistory(); updateNowPanel(); showToast(`Imported ${newLogs.length} entries ✅`);
+    } catch(err){showToast('❌ Invalid file format');}
   };
-  reader.readAsText(file); event.target.value = '';
+  reader.readAsText(file); event.target.value='';
 }
-
 function clearAllData() {
-  if (!confirm('Clear ALL tracking data? This cannot be undone.')) return;
-  state.logs = []; state.feedSession = null; state.sleepSession = null;
-  clearInterval(feedTimerInterval); clearInterval(sleepTimerInterval);
-  document.getElementById('startFeedBtn').style.display = 'flex';
-  document.getElementById('stopFeedBtn').style.display = 'none';
-  document.getElementById('feedOptions').classList.remove('show');
-  document.getElementById('feedActiveCard').classList.remove('show');
-  document.getElementById('feedDot').classList.remove('show');
-  document.getElementById('startSleepBtn').style.display = 'flex';
-  document.getElementById('stopSleepBtn').style.display = 'none';
-  document.getElementById('sleepActiveCard').classList.remove('show');
-  document.getElementById('sleepDot').classList.remove('show');
-  saveState(); refreshAll();
-  showToast('All data cleared 🗑️');
+  if(!confirm('Clear ALL tracking data? This cannot be undone.')) return;
+  state.logs=[]; state.feedSession=null; state.sleepSession=null;
+  saveState(); updateNowPanel(); refreshHistory(); showToast('All data cleared 🗑️');
 }
-
-let retroType = 'feed';
-const RETRO_COLOURS = {
-  pee: ['Yellow','Dark Yellow','Clear'],
-  poo: ['Black','Green','Yellow','Brown','Orange','Red','White/Grey'],
-  both: ['Yellow','Green','Brown','Orange','Red'],
-};
-
-function openRetroModal(type) {
-  editingLogId = null;
-  document.querySelector('#retroModal .modal-title').textContent = '✏️ Add Past Entry';
-  retroType = type || 'feed';
-  const now = new Date();
-  const dateStr = now.toISOString().slice(0,10);
-  const timeStr = now.toTimeString().slice(0,5);
-  ['rf-date','rn-date','rs-date','rs-end-date'].forEach(id => { const el = document.getElementById(id); if (el) el.value = dateStr; });
-  ['rf-start','rn-time','rs-start','rs-end'].forEach(id => { const el = document.getElementById(id); if (el) el.value = timeStr; });
-  document.getElementById('rf-duration').value = '';
-  document.getElementById('rf-side').value = 'left';
-  document.getElementById('rn-type').value = 'pee';
-  document.getElementById('rn-notes').value = '';
-  updateRetroColours(); setRetroType(retroType);
-  document.getElementById('retroModal').classList.add('open');
-}
-function closeRetroModal() {
-  document.getElementById('retroModal').classList.remove('open');
-  editingLogId = null;
-  document.querySelector('#retroModal .modal-title').textContent = '✏️ Add Past Entry';
-}
-function handleOverlayClick(e) { if (e.target === document.getElementById('retroModal')) closeRetroModal(); }
-
-function setRetroType(type) {
-  retroType = type;
-  ['feed','nappy','sleep'].forEach(t => {
-    document.getElementById('rtab-' + t).className = 'retro-type-tab' + (t === type ? ' sel-' + type : '');
-    document.getElementById('rfields-' + t).className = 'retro-fields' + (t === type ? ' show' : '');
+function checkForUpdates() {
+  if(!('serviceWorker' in navigator)){showToast('Not supported');return;}
+  navigator.serviceWorker.getRegistration().then(reg=>{
+    if(!reg){showToast('No service worker found');return;}
+    reg.update().then(()=>{
+      if(reg.waiting){reg.waiting.postMessage({type:'SKIP_WAITING'});showToast('Reloading… 🔄');setTimeout(()=>location.reload(),800);}
+      else showToast('Already up to date ✅');
+    });
   });
 }
 
-function updateRetroColours() {
-  const type = document.getElementById('rn-type').value;
-  const colours = RETRO_COLOURS[type] || RETRO_COLOURS['pee'];
-  document.getElementById('rn-colour').innerHTML = '<option value="">— not recorded —</option>' + colours.map(c => `<option value="${c}">${c}</option>`).join('');
+function formatDur(totalSec) {
+  if(totalSec<60)return totalSec+'s';
+  const h=Math.floor(totalSec/3600),m=Math.floor((totalSec%3600)/60),s=totalSec%60;
+  if(h>0)return`${h}h ${m}m`;
+  return`${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
 }
-
-function saveRetroEntry() {
-  const isEditing = editingLogId !== null;
-  let entry;
-  if (retroType === 'feed') {
-    const dateVal = document.getElementById('rf-date').value;
-    const timeVal = document.getElementById('rf-start').value;
-    if (!dateVal || !timeVal) { showToast('Please set a date and time'); return; }
-    const startTs = new Date(dateVal + 'T' + timeVal).getTime();
-    const durSecs = Math.round((parseFloat(document.getElementById('rf-duration').value) || 0) * 60);
-    entry = { type: 'feed', startTime: startTs, endTime: durSecs ? startTs + durSecs * 1000 : startTs, duration: durSecs, side: document.getElementById('rf-side').value, retro: true };
-  } else if (retroType === 'nappy') {
-    const dateVal = document.getElementById('rn-date').value;
-    const timeVal = document.getElementById('rn-time').value;
-    if (!dateVal || !timeVal) { showToast('Please set a date and time'); return; }
-    const startTs = new Date(dateVal + 'T' + timeVal).getTime();
-    entry = { type: 'nappy', startTime: startTs, nappyType: document.getElementById('rn-type').value, colour: document.getElementById('rn-colour').value, notes: document.getElementById('rn-notes').value.trim(), retro: true };
-  } else if (retroType === 'sleep') {
-    const dateVal = document.getElementById('rs-date').value;
-    const startTime = document.getElementById('rs-start').value;
-    if (!dateVal || !startTime) { showToast('Please set a start date and time'); return; }
-    const startTs = new Date(dateVal + 'T' + startTime).getTime();
-    const endDateVal = document.getElementById('rs-end-date').value || dateVal;
-    const endTime = document.getElementById('rs-end').value;
-    let endTs = null, durSecs = 0;
-    if (endTime) {
-      endTs = new Date(endDateVal + 'T' + endTime).getTime();
-      if (endTs <= startTs) { showToast('Wake time must be after sleep start'); return; }
-      durSecs = Math.round((endTs - startTs) / 1000);
-    }
-    entry = { type: 'sleep', startTime: startTs, endTime: endTs, duration: durSecs, retro: true };
-  } else { return; }
-  if (isEditing) {
-    entry.id = editingLogId;
-    const idx = state.logs.findIndex(l => l.id === editingLogId);
-    if (idx !== -1) state.logs[idx] = entry;
-  } else {
-    entry.id = Date.now() + Math.random();
-    state.logs.push(entry);
-  }
-  state.logs.sort((a, b) => b.startTime - a.startTime);
-  saveState(); closeRetroModal(); refreshAll();
-  showToast(isEditing ? 'Entry updated ✅' : 'Past entry saved ✅');
-}
-
-function formatDuration(totalSeconds) {
-  if (totalSeconds < 60) return totalSeconds + 's';
-  const h = Math.floor(totalSeconds / 3600);
-  const m = Math.floor((totalSeconds % 3600) / 60);
-  const s = totalSeconds % 60;
-  if (h > 0) return `${h}h ${m}m`;
-  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-}
-
+function fmtTime(ts) { return new Date(ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); }
 function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg; t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2500);
-}
-
-function openTextImportModal() {
-  document.getElementById('textImportArea').value = '';
-  document.getElementById('textImportPreview').textContent = '';
-  document.getElementById('textImportModal').classList.add('open');
-}
-function closeTextImportModal() { document.getElementById('textImportModal').classList.remove('open'); }
-function handleTextImportOverlayClick(e) { if (e.target === document.getElementById('textImportModal')) closeTextImportModal(); }
-
-function parseTextEntry(line) {
-  line = line.trim();
-  if (!line || line.startsWith('#')) return null;
-  const m = line.match(/^(\d{4}-\d{2}-\d{2}|\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})\s+(\d{1,2}:\d{2})\s+(\w+)(.*)/i);
-  if (!m) return null;
-  let [, dateStr, timeStr, typeRaw, rest] = m;
-  let isoDate;
-  if (/^\d{4}/.test(dateStr)) {
-    isoDate = dateStr;
-  } else {
-    const sep = dateStr.includes('/') ? '/' : '-';
-    const [d, mo, y] = dateStr.split(sep);
-    isoDate = `${y}-${mo.padStart(2,'0')}-${d.padStart(2,'0')}`;
-  }
-  const startTime = new Date(`${isoDate}T${timeStr}`).getTime();
-  if (isNaN(startTime)) return null;
-  const typeMap = { feed:'feed', f:'feed', nappy:'nappy', n:'nappy', diaper:'nappy', d:'nappy', sleep:'sleep', s:'sleep' };
-  const logType = typeMap[typeRaw.toLowerCase()];
-  if (!logType) return null;
-  const parts = rest.trim().split(/\s+/).filter(Boolean);
-  const log = { id: Date.now() + Math.random(), type: logType, startTime, retro: true };
-  if (logType === 'feed') {
-    const sideMap = { left:'left', l:'left', right:'right', r:'right', both:'both', b:'both' };
-    let i = 0;
-    log.side = sideMap[(parts[0] || '').toLowerCase()] || 'both';
-    if (sideMap[(parts[0] || '').toLowerCase()]) i = 1;
-    const dur = parseFloat(parts[i]);
-    if (!isNaN(dur) && dur > 0) { log.duration = Math.round(dur * 60); log.endTime = startTime + log.duration * 1000; }
-  } else if (logType === 'nappy') {
-    const ntMap = { pee:'pee', p:'pee', wet:'pee', poo:'poo', dirty:'poo', both:'both', b:'both', mixed:'both' };
-    log.nappyType = ntMap[(parts[0] || '').toLowerCase()] || 'pee';
-    log.colour = parts.slice(1).join(' ');
-    log.notes = '';
-  } else if (logType === 'sleep') {
-    const dur = parseFloat(parts[0]);
-    if (!isNaN(dur) && dur > 0) { log.duration = Math.round(dur * 60); log.endTime = startTime + log.duration * 1000; }
-  }
-  return log;
-}
-
-function previewTextImport() {
-  const lines = document.getElementById('textImportArea').value.split('\n');
-  const valid = lines.map(parseTextEntry).filter(Boolean).length;
-  const skipped = lines.filter(l => { const t = l.trim(); return t && !t.startsWith('#') && !parseTextEntry(l); }).length;
-  const el = document.getElementById('textImportPreview');
-  if (!document.getElementById('textImportArea').value.trim()) { el.textContent = ''; return; }
-  el.textContent = `Found ${valid} valid entr${valid === 1 ? 'y' : 'ies'}` + (skipped ? `, ${skipped} line${skipped === 1 ? '' : 's'} skipped` : '');
-  el.style.color = valid > 0 ? 'var(--sleep-dark)' : 'var(--nappy-dark)';
-}
-
-function importTextEntries() {
-  const lines = document.getElementById('textImportArea').value.split('\n');
-  const entries = lines.map(parseTextEntry).filter(Boolean);
-  if (!entries.length) { showToast('No valid entries found'); return; }
-  const existing = new Set(state.logs.map(l => l.type + ':' + l.startTime));
-  const fresh = entries.filter(e => !existing.has(e.type + ':' + e.startTime));
-  state.logs = [...state.logs, ...fresh].sort((a, b) => b.startTime - a.startTime);
-  saveState(); closeTextImportModal(); refreshAll();
-  showToast(`Added ${fresh.length} entr${fresh.length === 1 ? 'y' : 'ies'} ✅`);
-}
-
-function openEmailModal() {
-  document.getElementById('emailInput').value = state.emailAddress || '';
-  document.getElementById('emailModal').classList.add('open');
-}
-function closeEmailModal() { document.getElementById('emailModal').classList.remove('open'); }
-function handleEmailOverlayClick(e) { if (e.target === document.getElementById('emailModal')) closeEmailModal(); }
-
-function formatLogForEmail() {
-  const name = state.babyName || 'Baby';
-  const now = new Date();
-  const lines = [];
-  lines.push(name + "'s Tracker Log");
-  lines.push('Generated: ' + now.toLocaleDateString([], { weekday:'long', day:'numeric', month:'long', year:'numeric' }) + ' at ' + now.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }));
-  lines.push('');
-  const today = new Date(); today.setHours(0,0,0,0);
-  const todayTs = today.getTime();
-  const tl = state.logs.filter(l => l.startTime >= todayTs);
-  const sleepSecs = tl.filter(l => l.type === 'sleep').reduce((a, l) => a + (l.duration || 0), 0);
-  lines.push("TODAY'S SUMMARY");
-  lines.push('Feeds:   ' + tl.filter(l => l.type === 'feed').length);
-  lines.push('Nappies: ' + tl.filter(l => l.type === 'nappy').length);
-  lines.push('Sleep:   ' + formatDuration(sleepSecs));
-  lines.push('');
-  lines.push('FULL LOG');
-  lines.push('--------');
-  if (!state.logs.length) {
-    lines.push('No entries yet.');
-  } else {
-    let currentDay = '';
-    state.logs.forEach(log => {
-      const d = new Date(log.startTime);
-      const dayStr = d.toLocaleDateString([], { weekday:'short', day:'numeric', month:'short', year:'numeric' });
-      if (dayStr !== currentDay) { currentDay = dayStr; lines.push(''); lines.push(dayStr); }
-      const timeStr = d.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
-      let entry = '  ' + timeStr + '  ';
-      if (log.type === 'feed') {
-        const sides = { left: 'Left side', right: 'Right side', both: 'Both sides' };
-        entry += 'Feed — ' + (sides[log.side] || '') + (log.duration ? ' — ' + formatDuration(log.duration) : '');
-      } else if (log.type === 'nappy') {
-        const types = { pee: 'Pee', poo: 'Poo', both: 'Pee & Poo' };
-        entry += 'Nappy — ' + (types[log.nappyType] || '') + (log.colour ? ' — ' + log.colour : '') + (log.notes ? ' — ' + log.notes : '');
-      } else if (log.type === 'sleep') {
-        entry += 'Sleep — ' + (log.duration ? formatDuration(log.duration) : 'In progress');
-      }
-      if (log.retro) entry += ' (past entry)';
-      lines.push(entry);
-    });
-  }
-  return lines.join('\n');
-}
-
-function sendEmailLog() {
-  const email = document.getElementById('emailInput').value.trim();
-  if (!email) { showToast('Please enter an email address'); return; }
-  state.emailAddress = email;
-  saveState();
-  closeEmailModal();
-  const name = state.babyName || 'Baby';
-  const subject = name + "'s Tracker Log — " + new Date().toLocaleDateString([], { day:'numeric', month:'short', year:'numeric' });
-  const body = formatLogForEmail();
-  const mailtoUrl = 'mailto:' + encodeURIComponent(email) + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
-  if (mailtoUrl.length <= 2000) {
-    const a = document.createElement('a'); a.href = mailtoUrl; a.click();
-    showToast('Opening email app 📧');
-  } else {
-    navigator.clipboard.writeText(body).then(() => {
-      const a = document.createElement('a');
-      a.href = 'mailto:' + encodeURIComponent(email) + '?subject=' + encodeURIComponent(subject);
-      a.click();
-      showToast('Log copied — paste into the email body 📋');
-    }).catch(() => { showToast('Log too large — use Export JSON instead'); });
-  }
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2500);
 }
 
 init();
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js');
-}
-
-function checkForUpdates() {
-  if (!('serviceWorker' in navigator)) { showToast('Service worker not supported'); return; }
-  navigator.serviceWorker.getRegistration().then(reg => {
-    if (!reg) { showToast('No service worker found'); return; }
-    reg.update().then(() => {
-      if (reg.waiting) {
-        reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-        showToast('Update ready — reloading… 🔄');
-        setTimeout(() => location.reload(), 800);
-      } else {
-        showToast('Already up to date ✅');
-      }
-    });
-  });
-}
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
 </script>
 </body>
 </html>
