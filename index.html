@@ -693,7 +693,7 @@ select.field-inp { cursor: pointer; }
 </div>
 
 <script>
-const APP_VERSION = 15;
+const APP_VERSION = 16;
 let state = { babyName:'Baby', birthDate:null, logs:[], feedSession:null, sleepSession:null };
 let feedType = 'breast';
 let nappyType = 'pee';
@@ -1303,7 +1303,14 @@ function emailLog() {
 }
 
 function exportData() {
-  const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+  function tsStr(n){return n?new Date(n).toISOString():n;}
+  const out={
+    ...state,
+    logs:state.logs.map(l=>({...l,id:tsStr(l.id),startTime:tsStr(l.startTime),endTime:l.endTime?tsStr(l.endTime):undefined})),
+    feedSession:state.feedSession?{...state.feedSession,startTime:tsStr(state.feedSession.startTime)}:null,
+    sleepSession:state.sleepSession?{...state.sleepSession,startTime:tsStr(state.sleepSession.startTime)}:null
+  };
+  const blob=new Blob([JSON.stringify(out,null,2)],{type:'application/json'});
   const url=URL.createObjectURL(blob), a=document.createElement('a');
   a.href=url; a.download=`baby-tracker-${new Date().toISOString().slice(0,10)}.json`; a.click();
   URL.revokeObjectURL(url); showToast('Data exported ✅');
@@ -1314,6 +1321,8 @@ function importData(event) {
   reader.onload=e=>{
     try {
       const imp=JSON.parse(e.target.result); if(!imp.logs) throw new Error();
+      function tsMs(v){return typeof v==='string'?new Date(v).getTime():v;}
+      imp.logs=imp.logs.map(l=>({...l,id:tsMs(l.id),startTime:tsMs(l.startTime),endTime:l.endTime?tsMs(l.endTime):l.endTime}));
       const existing=new Set(state.logs.map(l=>l.id));
       const newLogs=imp.logs.filter(l=>!existing.has(l.id));
       state.logs=[...state.logs,...newLogs].sort((a,b)=>b.startTime-a.startTime);
