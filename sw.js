@@ -1,4 +1,4 @@
-const CACHE = 'baby-tracker-v12';
+const CACHE = 'baby-tracker-v13';
 const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
@@ -7,10 +7,14 @@ self.addEventListener('install', e => {
 });
 
 self.addEventListener('activate', e => {
-  e.waitUntil(caches.keys().then(keys =>
-    Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
-  ));
-  self.clients.claim();
+  e.waitUntil(
+    caches.keys()
+      .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+      .then(() => self.clients.claim())
+      .then(() => self.clients.matchAll({type:'window'}).then(clients =>
+        clients.forEach(c => c.postMessage({type:'SW_UPDATED'}))
+      ))
+  );
 });
 
 self.addEventListener('message', e => {
@@ -18,20 +22,22 @@ self.addEventListener('message', e => {
 });
 
 self.addEventListener('fetch', e => {
-  // Navigation (HTML page): network-first so updates are always picked up
+  // Navigation (HTML): network-first so updates always load
   if (e.request.mode === 'navigate') {
     e.respondWith(
-      fetch(e.request).then(response => {
-        if (response && response.status === 200) {
-          const clone = response.clone();
-          caches.open(CACHE).then(c => c.put(e.request, clone));
-        }
-        return response;
-      }).catch(() => caches.match(e.request))
+      fetch(e.request)
+        .then(response => {
+          if (response && response.status === 200) {
+            const clone = response.clone();
+            caches.open(CACHE).then(c => c.put(e.request, clone));
+          }
+          return response;
+        })
+        .catch(() => caches.match(e.request))
     );
     return;
   }
-  // All other assets: cache-first
+  // Assets: cache-first
   e.respondWith(
     caches.match(e.request).then(cached => {
       if (cached) return cached;
