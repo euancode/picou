@@ -136,13 +136,14 @@ body {
 }
 .tl-win-btn.active { background: var(--card2); color: var(--text); border-color: rgba(255,255,255,0.2); }
 #timelineCanvas {
-  width: 100%; height: 44px;
+  width: 100%; height: 64px;
   border-radius: 8px;
   display: block;
 }
 .tl-ticks {
-  display: flex; justify-content: space-between;
-  margin-top: 5px;
+  position: relative;
+  height: 14px;
+  margin-top: 4px;
 }
 .tl-tick { font-size: 9px; color: var(--text-muted); font-weight: 600; }
 
@@ -574,10 +575,12 @@ select.field-inp { cursor: pointer; }
         <input type="date" class="info-inp" id="birthDateInput" onchange="saveBirthDate()">
       </div>
       <button class="data-btn" onclick="checkForUpdates()"><span class="d-icon">🔄</span> Check for Updates</button>
+      <button class="data-btn" onclick="emailLog()"><span class="d-icon">📧</span> Email Log</button>
       <button class="data-btn" onclick="exportData()"><span class="d-icon">⬆️</span> Export Data (JSON)</button>
       <button class="data-btn" onclick="document.getElementById('fileInput').click()"><span class="d-icon">⬇️</span> Import Data (JSON)</button>
       <input type="file" id="fileInput" accept=".json" onchange="importData(event)">
       <button class="data-btn danger" onclick="clearAllData()"><span class="d-icon">🗑️</span> Clear All Data</button>
+      <div style="text-align:center;margin-top:16px;font-size:11px;color:var(--text-muted);font-weight:600">Version <span id="appVersionDisplay"></span></div>
     </div>
   </div>
 </div>
@@ -677,6 +680,7 @@ select.field-inp { cursor: pointer; }
 </div>
 
 <script>
+const APP_VERSION = 13;
 let state = { babyName:'Baby', birthDate:null, logs:[], feedSession:null, sleepSession:null };
 let feedType = 'breast';
 let nappyType = 'pee';
@@ -706,6 +710,7 @@ function init() {
       document.getElementById('feed'+t.charAt(0).toUpperCase()+t.slice(1)).classList.toggle('sel',t===feedType);
     });
   }
+  document.getElementById('appVersionDisplay').textContent = APP_VERSION;
   updateNowPanel();
   refreshHistory();
   updateClock();
@@ -757,7 +762,7 @@ function formatAge(days) {
 }
 function updateAgeDisplay() {
   const days=getAgeInDays();
-  document.getElementById('babyAgeDisplay').textContent=days!=null?(formatAge(days)||''):'';
+  document.getElementById('babyAgeDisplay').textContent=days!=null?(formatAge(days)||''): '';
 }
 
 function showPanel(name) {
@@ -935,9 +940,7 @@ function updateColourGrid() {
   document.getElementById('colourGrid').innerHTML=colours.map(c=>`
     <button class="colour-chip${nappyColour===c.label?' sel':''}"
       style="background:${c.bg};color:${c.text}"
-      onclick="selectColour('${c.label.replace(/'/g,"\\'")}')">
-      ${c.label}
-    </button>
+      onclick="selectColour('${c.label.replace(/'/g,"\\'")}')">\n      ${c.label}\n    </button>
   `).join('');
 }
 function selectColour(label) { nappyColour=nappyColour===label?'':label; updateColourGrid(); }
@@ -952,8 +955,8 @@ function resizeCanvas() {
   const wrap=canvas.parentElement;
   canvas.width=(wrap.clientWidth-28)*window.devicePixelRatio||1;
   canvas.style.width=(wrap.clientWidth-28)+'px';
-  canvas.height=44*window.devicePixelRatio;
-  canvas.style.height='44px';
+  canvas.height=64*window.devicePixelRatio;
+  canvas.style.height='64px';
   drawTimeline();
 }
 
@@ -979,64 +982,80 @@ function drawTimeline() {
   const R=6*dpr;
 
   // Background
-  ctx.fillStyle='#22223A';
+  ctx.fillStyle='#1A1A2E';
   ctx.beginPath();
   ctx.roundRect(0,0,W,H,R);
   ctx.fill();
 
+  // 15-min blocks (30-min for 12h, 1h for 24h)
+  const blockMs=tlWindowHours<=6?15*60000:tlWindowHours<=12?30*60000:60*60000;
+  const firstBlock=Math.ceil(startTs/blockMs)*blockMs;
+  let bi=0;
+  for (let ts=firstBlock;ts<now+blockMs;ts+=blockMs,bi++) {
+    const x1=toX(ts), x2=toX(ts+blockMs);
+    if (bi%2===0) {
+      ctx.fillStyle='rgba(255,255,255,0.04)';
+      ctx.fillRect(x1,0,x2-x1,H);
+    }
+    if (ts%3600000===0) {
+      ctx.fillStyle='rgba(255,255,255,0.13)';
+      ctx.fillRect(x1,0,dpr,H);
+    }
+  }
+
   const py=4*dpr, ph=H-8*dpr;
 
-  // Draw logs
+  // Completed logs
   const relevant=state.logs.filter(l=>(l.endTime||now)>=startTs&&l.startTime<=now);
   relevant.forEach(log=>{
     const x1=toX(log.startTime), x2=toX(log.endTime||now);
     if (log.type==='feed') {
-      ctx.fillStyle='#FF6B9D';
-      ctx.fillRect(x1,py,x2-x1,ph);
+      ctx.fillStyle='#FF6B9D'; ctx.fillRect(x1,py,x2-x1,ph);
     } else if (log.type==='sleep') {
-      ctx.fillStyle='#5B9CF6';
-      ctx.fillRect(x1,py,x2-x1,ph);
+      ctx.fillStyle='#5B9CF6'; ctx.fillRect(x1,py,x2-x1,ph);
     } else if (log.type==='nappy') {
-      ctx.fillStyle='#FFB347';
-      ctx.fillRect(Math.max(0,toX(log.startTime)-dpr),0,3*dpr,H);
+      ctx.fillStyle='#FFB347'; ctx.fillRect(Math.max(0,toX(log.startTime)-dpr),0,3*dpr,H);
     }
   });
 
-  // Active sessions (grow live)
-  if (state.feedSession) {
-    const x1=toX(state.feedSession.startTime);
-    ctx.fillStyle='#FF6B9D';
-    ctx.fillRect(x1,py,W-x1,ph);
-    const grad=ctx.createLinearGradient(W-20*dpr,0,W,0);
-    grad.addColorStop(0,'rgba(255,107,157,0)');
-    grad.addColorStop(1,'rgba(255,200,220,0.7)');
-    ctx.fillStyle=grad;
-    ctx.fillRect(Math.max(x1,W-20*dpr),py,20*dpr,ph);
+  // Active sessions — grow live + timer label
+  function drawActiveBar(startTime,color,glowRgba) {
+    const x1=toX(startTime), barW=W-x1;
+    ctx.fillStyle=color; ctx.fillRect(x1,py,barW,ph);
+    const grad=ctx.createLinearGradient(W-24*dpr,0,W,0);
+    grad.addColorStop(0,glowRgba.replace(',1)','0)'));
+    grad.addColorStop(1,glowRgba);
+    ctx.fillStyle=grad; ctx.fillRect(Math.max(x1,W-24*dpr),py,24*dpr,ph);
+    if (barW>44*dpr) {
+      const label=formatDur(Math.round((now-startTime)/1000));
+      ctx.font=`700 ${10*dpr}px Nunito,sans-serif`;
+      ctx.fillStyle='rgba(255,255,255,0.92)';
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      const cx=Math.max(x1+barW/2, x1+22*dpr);
+      ctx.fillText(label,Math.min(cx,W-30*dpr),H/2);
+      ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+    }
   }
-  if (state.sleepSession) {
-    const x1=toX(state.sleepSession.startTime);
-    ctx.fillStyle='#5B9CF6';
-    ctx.fillRect(x1,py,W-x1,ph);
-    const grad=ctx.createLinearGradient(W-20*dpr,0,W,0);
-    grad.addColorStop(0,'rgba(91,156,246,0)');
-    grad.addColorStop(1,'rgba(160,210,255,0.7)');
-    ctx.fillStyle=grad;
-    ctx.fillRect(Math.max(x1,W-20*dpr),py,20*dpr,ph);
-  }
+  if (state.feedSession) drawActiveBar(state.feedSession.startTime,'#FF6B9D','rgba(255,200,220,1)');
+  if (state.sleepSession) drawActiveBar(state.sleepSession.startTime,'#5B9CF6','rgba(160,210,255,1)');
 
   // Now line
-  ctx.fillStyle='rgba(255,255,255,0.75)';
+  ctx.fillStyle='rgba(255,255,255,0.8)';
   ctx.fillRect(W-2*dpr,0,2*dpr,H);
 
-  // Tick labels
-  const numTicks=4;
-  const tickInterval=windowMs/numTicks;
-  const ticks=[];
-  for (let i=0;i<=numTicks;i++) {
-    const ts=startTs+i*tickInterval;
-    ticks.push(new Date(ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}));
+  // Hour-aligned tick labels
+  const tickEl=document.getElementById('tlTicks');
+  const hourMs=3600000;
+  const firstHour=Math.ceil(startTs/hourMs)*hourMs;
+  let tickHtml='';
+  for (let ts=firstHour;ts<=now;ts+=hourMs) {
+    const pct=((ts-startTs)/windowMs)*100;
+    if (pct<0||pct>100) continue;
+    const label=new Date(ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+    tickHtml+=`<span class="tl-tick" style="position:absolute;left:${pct.toFixed(1)}%;transform:translateX(-50%)">${label}</span>`;
   }
-  document.getElementById('tlTicks').innerHTML=ticks.map(t=>`<span class="tl-tick">${t}</span>`).join('');
+  tickHtml+=`<span class="tl-tick" style="position:absolute;right:0">now</span>`;
+  tickEl.innerHTML=tickHtml;
 }
 
 // History
@@ -1083,7 +1102,7 @@ function renderItem(log) {
     icon='😴'; title='Sleep';
     detail=log.duration?formatDur(log.duration):'In progress';
   }
-  const pastBadge=log.retro?` <span style="font-size:10px;background:var(--card2);padding:1px 6px;border-radius:8px;color:var(--text-soft)">past</span>`:'';
+  const pastBadge=log.retro?` <span style="font-size:10px;background:var(--card2);padding:1px 6px;border-radius:8px;color:var(--text-soft)">past</span>`:''
   return `<div class="history-item" id="log-${log.id}">
     <div class="hi-icon ${log.type}">${icon}</div>
     <div class="hi-text">
@@ -1238,6 +1257,33 @@ function refreshTrends() {
   }).join('');
 }
 
+function emailLog() {
+  const now = Date.now();
+  const since = now - 48*3600000;
+  const recent = state.logs.filter(l => l.startTime >= since).slice().sort((a,b) => a.startTime - b.startTime);
+  const lines = recent.map(l => {
+    const t = new Date(l.startTime).toLocaleString([],{weekday:'short',hour:'2-digit',minute:'2-digit',day:'numeric',month:'short'});
+    if (l.type==='feed') {
+      const tp = l.feedType==='formula'?'Formula':'Breast';
+      return `${t}  Feed (${tp})${l.duration?' '+formatDur(l.duration):''}`;
+    }
+    if (l.type==='sleep') return `${t}  Sleep${l.duration?' '+formatDur(l.duration):''}`;
+    if (l.type==='nappy') {
+      const tp = {pee:'Pee',poo:'Poo',both:'Both'}[l.nappyType]||'';
+      return `${t}  Nappy (${tp})${l.colour?' '+l.colour:''}`;
+    }
+    return t;
+  });
+  const body = lines.length
+    ? `${state.babyName} — last 48h log\n\n${lines.join('\n')}`
+    : `${state.babyName} — no entries in last 48h`;
+  if (navigator.share) {
+    navigator.share({ title: `${state.babyName} log`, text: body }).catch(()=>{});
+  } else {
+    window.location.href = 'mailto:?subject='+encodeURIComponent(state.babyName+' log')+'&body='+encodeURIComponent(body);
+  }
+}
+
 function exportData() {
   const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
   const url=URL.createObjectURL(blob), a=document.createElement('a');
@@ -1268,9 +1314,19 @@ function checkForUpdates() {
   if(!('serviceWorker' in navigator)){showToast('Not supported');return;}
   navigator.serviceWorker.getRegistration().then(reg=>{
     if(!reg){showToast('No service worker found');return;}
+    showToast('Checking…');
+    function activate(sw){
+      sw.postMessage({type:'SKIP_WAITING'});
+      showToast('Update found! Reloading… 🔄');
+      setTimeout(()=>location.reload(),900);
+    }
+    reg.addEventListener('updatefound',()=>{
+      const sw=reg.installing;
+      sw.addEventListener('statechange',()=>{ if(sw.state==='installed') activate(sw); });
+    });
     reg.update().then(()=>{
-      if(reg.waiting){reg.waiting.postMessage({type:'SKIP_WAITING'});showToast('Reloading… 🔄');setTimeout(()=>location.reload(),800);}
-      else showToast('Already up to date ✅');
+      if(reg.waiting) activate(reg.waiting);
+      else if(!reg.installing) setTimeout(()=>{ if(!reg.waiting&&!reg.installing) showToast('Already up to date ✅'); },600);
     });
   });
 }
@@ -1289,7 +1345,12 @@ function showToast(msg) {
 }
 
 init();
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js');
+  navigator.serviceWorker.addEventListener('message', e => {
+    if (e.data && e.data.type === 'SW_UPDATED') location.reload();
+  });
+}
 </script>
 </body>
 </html>
