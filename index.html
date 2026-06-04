@@ -579,6 +579,7 @@ select.field-inp { cursor: pointer; }
       <button class="data-btn" onclick="document.getElementById('fileInput').click()"><span class="d-icon">⬇️</span> Import Data (JSON)</button>
       <input type="file" id="fileInput" accept=".json" onchange="importData(event)">
       <button class="data-btn danger" onclick="clearAllData()"><span class="d-icon">🗑️</span> Clear All Data</button>
+      <div style="text-align:center;margin-top:16px;font-size:11px;color:var(--text-muted);font-weight:600">Version <span id="appVersionDisplay"></span></div>
     </div>
   </div>
 </div>
@@ -678,6 +679,7 @@ select.field-inp { cursor: pointer; }
 </div>
 
 <script>
+const APP_VERSION = 10;
 let state = { babyName:'Baby', birthDate:null, logs:[], feedSession:null, sleepSession:null };
 let feedType = 'breast';
 let nappyType = 'pee';
@@ -707,6 +709,7 @@ function init() {
       document.getElementById('feed'+t.charAt(0).toUpperCase()+t.slice(1)).classList.toggle('sel',t===feedType);
     });
   }
+  document.getElementById('appVersionDisplay').textContent = APP_VERSION;
   updateNowPanel();
   refreshHistory();
   updateClock();
