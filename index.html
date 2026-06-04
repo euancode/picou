@@ -574,6 +574,7 @@ select.field-inp { cursor: pointer; }
         <input type="date" class="info-inp" id="birthDateInput" onchange="saveBirthDate()">
       </div>
       <button class="data-btn" onclick="checkForUpdates()"><span class="d-icon">🔄</span> Check for Updates</button>
+      <button class="data-btn" onclick="emailLog()"><span class="d-icon">📧</span> Email Log</button>
       <button class="data-btn" onclick="exportData()"><span class="d-icon">⬆️</span> Export Data (JSON)</button>
       <button class="data-btn" onclick="document.getElementById('fileInput').click()"><span class="d-icon">⬇️</span> Import Data (JSON)</button>
       <input type="file" id="fileInput" accept=".json" onchange="importData(event)">
@@ -1234,6 +1235,33 @@ function refreshTrends() {
       </div>
     </div>`;
   }).join('');
+}
+
+function emailLog() {
+  const now = Date.now();
+  const since = now - 48*3600000;
+  const recent = state.logs.filter(l => l.startTime >= since).slice().sort((a,b) => a.startTime - b.startTime);
+  const lines = recent.map(l => {
+    const t = new Date(l.startTime).toLocaleString([],{weekday:'short',hour:'2-digit',minute:'2-digit',day:'numeric',month:'short'});
+    if (l.type==='feed') {
+      const tp = l.feedType==='formula'?'Formula':'Breast';
+      return `${t}  Feed (${tp})${l.duration?' '+formatDur(l.duration):''}`;
+    }
+    if (l.type==='sleep') return `${t}  Sleep${l.duration?' '+formatDur(l.duration):''}`;
+    if (l.type==='nappy') {
+      const tp = {pee:'Pee',poo:'Poo',both:'Both'}[l.nappyType]||'';
+      return `${t}  Nappy (${tp})${l.colour?' '+l.colour:''}`;
+    }
+    return t;
+  });
+  const body = lines.length
+    ? `${state.babyName} — last 48h log\n\n${lines.join('\n')}`
+    : `${state.babyName} — no entries in last 48h`;
+  if (navigator.share) {
+    navigator.share({ title: `${state.babyName} log`, text: body }).catch(()=>{});
+  } else {
+    window.location.href = 'mailto:?subject='+encodeURIComponent(state.babyName+' log')+'&body='+encodeURIComponent(body);
+  }
 }
 
 function exportData() {
