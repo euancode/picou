@@ -680,7 +680,7 @@ select.field-inp { cursor: pointer; }
 </div>
 
 <script>
-const APP_VERSION = 13;
+const APP_VERSION = 14;
 let state = { babyName:'Baby', birthDate:null, logs:[], feedSession:null, sleepSession:null };
 let feedType = 'breast';
 let nappyType = 'pee';
@@ -1081,6 +1081,7 @@ function renderItem(log) {
   const t=new Date(log.startTime);
   const timeStr=t.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
   const dateStr=t.toLocaleDateString([],{weekday:'short',day:'numeric',month:'short'});
+  const endStr=log.endTime?new Date(log.endTime).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):null;
   let icon,title,detail;
   if (log.type==='feed') {
     icon='🤱'; title='Feed';
@@ -1110,7 +1111,7 @@ function renderItem(log) {
       <div class="hi-detail">${detail||'–'}</div>
     </div>
     <div style="text-align:right">
-      <div class="hi-time">${timeStr}<br><span style="font-size:10px;color:var(--text-muted)">${dateStr}</span></div>
+      <div class="hi-time">${timeStr}${endStr?`<span style="color:var(--text-muted)"> – ${endStr}</span>`:''}<br><span style="font-size:10px;color:var(--text-muted)">${dateStr}</span></div>
       <div class="hi-actions">
         <button class="hi-btn" onclick="editLog(${log.id})">✏️</button>
         <button class="hi-btn" onclick="deleteLog(${log.id})">✕</button>
