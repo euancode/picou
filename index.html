@@ -135,6 +135,16 @@ body {
   transition: all 0.15s;
 }
 .tl-win-btn.active { background: var(--card2); color: var(--text); border-color: rgba(255,255,255,0.2); }
+.tl-canvas-wrap { position: relative; }
+#tlNowPin {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 3px);
+  font-size: 10px;
+  color: rgba(255,255,255,0.8);
+  font-weight: 700;
+  pointer-events: none;
+}
 #timelineCanvas {
   width: 100%; height: 64px;
   border-radius: 8px;
@@ -490,7 +500,10 @@ select.field-inp { cursor: pointer; }
           <button class="tl-win-btn" onclick="setTLWindow(24,this)">24h</button>
         </div>
       </div>
-      <canvas id="timelineCanvas" height="44"></canvas>
+      <div class="tl-canvas-wrap">
+        <canvas id="timelineCanvas" height="44"></canvas>
+        <span id="tlNowPin">now</span>
+      </div>
       <div class="tl-ticks" id="tlTicks"></div>
       <div class="tl-legend">
         <div class="tl-leg-item"><div class="tl-leg-dot" style="background:#5B9CF6"></div>Sleep</div>
@@ -680,7 +693,7 @@ select.field-inp { cursor: pointer; }
 </div>
 
 <script>
-const APP_VERSION = 14;
+const APP_VERSION = 15;
 let state = { babyName:'Baby', birthDate:null, logs:[], feedSession:null, sleepSession:null };
 let feedType = 'breast';
 let nappyType = 'pee';
@@ -1043,18 +1056,22 @@ function drawTimeline() {
   ctx.fillStyle='rgba(255,255,255,0.8)';
   ctx.fillRect(W-2*dpr,0,2*dpr,H);
 
-  // Hour-aligned tick labels
+  // Adaptive tick interval to avoid label crowding
   const tickEl=document.getElementById('tlTicks');
-  const hourMs=3600000;
-  const firstHour=Math.ceil(startTs/hourMs)*hourMs;
+  const cssW=canvas.offsetWidth||300;
+  const pxPerHour=cssW/tlWindowHours;
+  const tickIntervalH=pxPerHour>=48?1:pxPerHour>=24?2:pxPerHour>=16?3:4;
+  const tickMs=tickIntervalH*3600000;
+  const firstTick=Math.ceil(startTs/tickMs)*tickMs;
   let tickHtml='';
-  for (let ts=firstHour;ts<=now;ts+=hourMs) {
+  for (let ts=firstTick;ts<=now;ts+=tickMs) {
     const pct=((ts-startTs)/windowMs)*100;
-    if (pct<0||pct>100) continue;
+    if (pct<0) continue;
+    // skip labels too close to right edge to avoid colliding with now pin
+    if (cssW*(1-pct/100)<42) continue;
     const label=new Date(ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
     tickHtml+=`<span class="tl-tick" style="position:absolute;left:${pct.toFixed(1)}%;transform:translateX(-50%)">${label}</span>`;
   }
-  tickHtml+=`<span class="tl-tick" style="position:absolute;right:0">now</span>`;
   tickEl.innerHTML=tickHtml;
 }
 
