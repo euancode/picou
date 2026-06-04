@@ -500,9 +500,8 @@ select.field-inp { cursor: pointer; }
     </div>
 
     <div class="side-row" id="sideRow">
-      <button class="side-btn" id="sideLeft" onclick="selectSide('left')">👈 Left</button>
-      <button class="side-btn" id="sideBoth" onclick="selectSide('both')">🔄 Both</button>
-      <button class="side-btn" id="sideRight" onclick="selectSide('right')">👉 Right</button>
+      <button class="side-btn sel" id="feedBreast" onclick="selectFeedType('breast')">🤱 Breast</button>
+      <button class="side-btn" id="feedFormula" onclick="selectFeedType('formula')">🍼 Formula</button>
     </div>
 
     <div class="actions">
@@ -645,8 +644,8 @@ select.field-inp { cursor: pointer; }
         </div>
         <div class="field-row">
           <div class="field-col"><div class="field-lbl">Duration (mins)</div><input type="number" class="field-inp" id="rf-duration" placeholder="e.g. 15" min="1" max="180"></div>
-          <div class="field-col"><div class="field-lbl">Side</div>
-            <select class="field-inp" id="rf-side"><option value="left">Left</option><option value="both">Both</option><option value="right">Right</option></select>
+          <div class="field-col"><div class="field-lbl">Type</div>
+            <select class="field-inp" id="rf-side"><option value="breast">Breast</option><option value="formula">Formula</option></select>
           </div>
         </div>
       </div>
@@ -679,7 +678,7 @@ select.field-inp { cursor: pointer; }
 
 <script>
 let state = { babyName:'Baby', birthDate:null, logs:[], feedSession:null, sleepSession:null };
-let feedSide = 'left';
+let feedType = 'breast';
 let nappyType = 'pee';
 let nappyColour = '';
 let historyFilter = 'all';
@@ -702,11 +701,9 @@ function init() {
   if (state.birthDate) document.getElementById('birthDateInput').value = state.birthDate;
   updateAgeDisplay();
   if (state.feedSession) {
-    if (!state.feedSession.segments) state.feedSession.segments=[];
-    if (!state.feedSession.currentSegmentStart) state.feedSession.currentSegmentStart=state.feedSession.startTime;
-    feedSide = state.feedSession.side||'left';
-    ['left','both','right'].forEach(s=>{
-      document.getElementById('side'+s.charAt(0).toUpperCase()+s.slice(1)).classList.toggle('sel',s===feedSide);
+    feedType = state.feedSession.feedType||'breast';
+    ['breast','formula'].forEach(t=>{
+      document.getElementById('feed'+t.charAt(0).toUpperCase()+t.slice(1)).classList.toggle('sel',t===feedType);
     });
   }
   updateNowPanel();
@@ -760,7 +757,7 @@ function formatAge(days) {
 }
 function updateAgeDisplay() {
   const days=getAgeInDays();
-  document.getElementById('babyAgeDisplay').textContent=days!=null?(formatAge(days)||''):'';
+  document.getElementById('babyAgeDisplay').textContent=days!=null?(formatAge(days)||''): '';
 }
 
 function showPanel(name) {
@@ -781,26 +778,13 @@ function updateStatusCard() {
     card.classList.add('st-feed');
     document.getElementById('stEmoji').textContent='🤱';
     document.getElementById('stTag').textContent='Feeding';
-    document.getElementById('stName').textContent='Breastfeeding';
+    const isFormula = state.feedSession.feedType==='formula';
+    document.getElementById('stName').textContent=isFormula?'Formula Feed':'Breastfeeding';
     const elapsed=Math.round((Date.now()-state.feedSession.startTime)/1000);
     document.getElementById('stTimer').textContent=formatDur(elapsed);
     startRow.style.display='flex';
     document.getElementById('stStartVal').textContent=fmtTime(state.feedSession.startTime);
-    const segs=state.feedSession.segments||[];
-    if (segs.length>0) {
-      const tots={};
-      segs.forEach(s=>{tots[s.side]=(tots[s.side]||0)+s.duration;});
-      const cur=Math.round((Date.now()-(state.feedSession.currentSegmentStart||state.feedSession.startTime))/1000);
-      tots[state.feedSession.side]=(tots[state.feedSession.side]||0)+cur;
-      const parts=[];
-      if(tots.left)parts.push('👈 '+formatDur(tots.left));
-      if(tots.both)parts.push('🔄 '+formatDur(tots.both));
-      if(tots.right)parts.push('👉 '+formatDur(tots.right));
-      document.getElementById('stSub').textContent=parts.join(' · ');
-    } else {
-      const sides={left:'👈 Left',right:'👉 Right',both:'🔄 Both'};
-      document.getElementById('stSub').textContent=sides[state.feedSession.side]||'';
-    }
+    document.getElementById('stSub').textContent='';
   } else if (state.sleepSession) {
     card.classList.add('st-sleep');
     document.getElementById('stEmoji').textContent='💤';
@@ -845,7 +829,6 @@ function applyStartEdit() {
   let ts=d.getTime();
   if (ts>Date.now()) ts-=86400000;
   session.startTime=ts;
-  if (state.feedSession&&(!session.segments||!session.segments.length)) session.currentSegmentStart=ts;
   saveState(); hideStartEdit();
 }
 function hideStartEdit() {
@@ -896,32 +879,24 @@ function toggleFeed() {
 function startFeed() {
   if (state.feedSession||state.sleepSession) return;
   const now=Date.now();
-  state.feedSession={startTime:now,side:feedSide,segments:[],currentSegmentStart:now};
+  state.feedSession={startTime:now,feedType:feedType};
   saveState(); updateNowPanel(); showToast('Feed started 🤱');
 }
 function stopFeed() {
   if (!state.feedSession) return;
   const now=Date.now();
   const duration=Math.round((now-state.feedSession.startTime)/1000);
-  const segs=[...(state.feedSession.segments||[])];
-  segs.push({side:state.feedSession.side,duration:Math.round((now-(state.feedSession.currentSegmentStart||state.feedSession.startTime))/1000)});
-  const entry={id:now,type:'feed',startTime:state.feedSession.startTime,endTime:now,duration,side:state.feedSession.side};
-  if (segs.length>1) entry.segments=segs;
+  const entry={id:now,type:'feed',startTime:state.feedSession.startTime,endTime:now,duration,feedType:state.feedSession.feedType||'breast'};
   state.logs.unshift(entry); state.feedSession=null;
   saveState(); updateNowPanel(); refreshHistory(); showToast('Feed saved — '+formatDur(duration)+' ✅');
 }
 
-function selectSide(side) {
-  feedSide=side;
-  ['left','both','right'].forEach(s=>{
-    document.getElementById('side'+s.charAt(0).toUpperCase()+s.slice(1)).classList.toggle('sel',s===side);
+function selectFeedType(type) {
+  feedType=type;
+  ['breast','formula'].forEach(t=>{
+    document.getElementById('feed'+t.charAt(0).toUpperCase()+t.slice(1)).classList.toggle('sel',t===type);
   });
-  if (state.feedSession&&state.feedSession.side!==side) {
-    const now=Date.now(), segStart=state.feedSession.currentSegmentStart||state.feedSession.startTime;
-    if (!state.feedSession.segments) state.feedSession.segments=[];
-    state.feedSession.segments.push({side:state.feedSession.side,duration:Math.round((now-segStart)/1000)});
-    state.feedSession.currentSegmentStart=now; state.feedSession.side=side; saveState();
-  } else if (state.feedSession) { state.feedSession.side=side; saveState(); }
+  if (state.feedSession) { state.feedSession.feedType=type; saveState(); }
 }
 
 function toggleSleep() {
@@ -960,9 +935,7 @@ function updateColourGrid() {
   document.getElementById('colourGrid').innerHTML=colours.map(c=>`
     <button class="colour-chip${nappyColour===c.label?' sel':''}"
       style="background:${c.bg};color:${c.text}"
-      onclick="selectColour('${c.label.replace(/'/g,"\\'")}')">  
-      ${c.label}
-    </button>
+      onclick="selectColour('${c.label.replace(/'/g,"\\'")}')">\n      ${c.label}\n    </button>
   `).join('');
 }
 function selectColour(label) { nappyColour=nappyColour===label?'':label; updateColourGrid(); }
@@ -971,14 +944,13 @@ function logNappy() {
   saveState(); closeNappySheet(); updateNowPanel(); refreshHistory(); showToast('Nappy logged ✅');
 }
 
+// Timeline
 function resizeCanvas() {
   const canvas=document.getElementById('timelineCanvas');
   const wrap=canvas.parentElement;
-  const dpr=window.devicePixelRatio||1;
-  const cssW=wrap.clientWidth-28;
-  canvas.width=cssW*dpr;
-  canvas.style.width=cssW+'px';
-  canvas.height=44*dpr;
+  canvas.width=(wrap.clientWidth-28)*window.devicePixelRatio||1;
+  canvas.style.width=(wrap.clientWidth-28)+'px';
+  canvas.height=44*window.devicePixelRatio;
   canvas.style.height='44px';
   drawTimeline();
 }
@@ -1004,6 +976,7 @@ function drawTimeline() {
   const toX=ts=>Math.max(0,Math.min(W,((ts-startTs)/windowMs)*W));
   const R=6*dpr;
 
+  // Background
   ctx.fillStyle='#22223A';
   ctx.beginPath();
   ctx.roundRect(0,0,W,H,R);
@@ -1011,6 +984,7 @@ function drawTimeline() {
 
   const py=4*dpr, ph=H-8*dpr;
 
+  // Draw logs
   const relevant=state.logs.filter(l=>(l.endTime||now)>=startTs&&l.startTime<=now);
   relevant.forEach(log=>{
     const x1=toX(log.startTime), x2=toX(log.endTime||now);
@@ -1026,6 +1000,7 @@ function drawTimeline() {
     }
   });
 
+  // Active sessions (grow live)
   if (state.feedSession) {
     const x1=toX(state.feedSession.startTime);
     ctx.fillStyle='#FF6B9D';
@@ -1047,18 +1022,22 @@ function drawTimeline() {
     ctx.fillRect(Math.max(x1,W-20*dpr),py,20*dpr,ph);
   }
 
+  // Now line
   ctx.fillStyle='rgba(255,255,255,0.75)';
   ctx.fillRect(W-2*dpr,0,2*dpr,H);
 
+  // Tick labels
   const numTicks=4;
   const tickInterval=windowMs/numTicks;
   const ticks=[];
   for (let i=0;i<=numTicks;i++) {
-    ticks.push(new Date(startTs+i*tickInterval).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}));
+    const ts=startTs+i*tickInterval;
+    ticks.push(new Date(ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}));
   }
   document.getElementById('tlTicks').innerHTML=ticks.map(t=>`<span class="tl-tick">${t}</span>`).join('');
 }
 
+// History
 function setFilter(f,el) {
   historyFilter=f;
   document.querySelectorAll('.ftab').forEach(t=>t.classList.remove('active'));
@@ -1084,18 +1063,16 @@ function renderItem(log) {
   let icon,title,detail;
   if (log.type==='feed') {
     icon='🤱'; title='Feed';
-    if (log.segments&&log.segments.length>1) {
-      const tots={};
-      log.segments.forEach(s=>{tots[s.side]=(tots[s.side]||0)+s.duration;});
-      const parts=[];
-      if(tots.left)parts.push('👈 '+formatDur(tots.left));
-      if(tots.both)parts.push('🔄 '+formatDur(tots.both));
-      if(tots.right)parts.push('👉 '+formatDur(tots.right));
-      detail=parts.join(' → ')+(log.duration?' · '+formatDur(log.duration)+' total':'');
-    } else {
+    let typeLabel;
+    if (log.feedType) {
+      typeLabel = log.feedType==='formula'?'🍼 Formula':'🤱 Breast';
+    } else if (log.side) {
       const sides={left:'👈 Left',right:'👉 Right',both:'🔄 Both'};
-      detail=(sides[log.side]||'')+(log.duration?' · '+formatDur(log.duration):'');
+      typeLabel = sides[log.side]||'🤱 Breast';
+    } else {
+      typeLabel = '🤱 Breast';
     }
+    detail = typeLabel+(log.duration?' · '+formatDur(log.duration):'');
   } else if (log.type==='nappy') {
     icon='🩲'; title='Nappy';
     const types={pee:'💛 Pee',poo:'💩 Poo',both:'💛💩 Both'};
@@ -1104,7 +1081,7 @@ function renderItem(log) {
     icon='😴'; title='Sleep';
     detail=log.duration?formatDur(log.duration):'In progress';
   }
-  const pastBadge=log.retro?` <span style="font-size:10px;background:var(--card2);padding:1px 6px;border-radius:8px;color:var(--text-soft)">past</span>`:'';
+  const pastBadge=log.retro?` <span style="font-size:10px;background:var(--card2);padding:1px 6px;border-radius:8px;color:var(--text-soft)">past</span>`:''
   return `<div class="history-item" id="log-${log.id}">
     <div class="hi-icon ${log.type}">${icon}</div>
     <div class="hi-text">
@@ -1133,12 +1110,13 @@ function editLog(id) {
   ['rf-start','rn-time','rs-start','rs-end'].forEach(fid=>{const el=document.getElementById(fid);if(el)el.value='';});
   document.getElementById('rf-duration').value='';
   setRetroType(log.type);
-  if (log.type==='feed'){document.getElementById('rf-start').value=ts;document.getElementById('rf-duration').value=log.duration?Math.round(log.duration/60):'';document.getElementById('rf-side').value=log.side||'left';}
+  if (log.type==='feed'){document.getElementById('rf-start').value=ts;document.getElementById('rf-duration').value=log.duration?Math.round(log.duration/60):'';document.getElementById('rf-side').value=log.feedType||'breast';}
   else if (log.type==='nappy'){document.getElementById('rn-time').value=ts;document.getElementById('rn-type').value=log.nappyType||'pee';updateRetroColours();document.getElementById('rn-colour').value=log.colour||'';}
   else if (log.type==='sleep'){document.getElementById('rs-start').value=ts;if(log.endTime){const ed=new Date(log.endTime);document.getElementById('rs-end-date').value=ed.toISOString().slice(0,10);document.getElementById('rs-end').value=ed.toTimeString().slice(0,5);}}
   document.getElementById('retroModal').classList.add('open');
 }
 
+// Retro modal
 function openRetroModal(type) {
   editingLogId=null;
   document.getElementById('retroModalTitle').textContent='✏️ Add Past Entry';
@@ -1147,7 +1125,7 @@ function openRetroModal(type) {
   ['rf-date','rn-date','rs-date','rs-end-date'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=ds;});
   ['rf-start','rn-time','rs-start','rs-end'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=ts;});
   document.getElementById('rf-duration').value='';
-  document.getElementById('rf-side').value='left';
+  document.getElementById('rf-side').value='breast';
   document.getElementById('rn-type').value='pee';
   updateRetroColours(); setRetroType(retroType);
   document.getElementById('retroModal').classList.add('open');
@@ -1176,7 +1154,7 @@ function saveRetroEntry() {
     if(!dv||!tv){showToast('Please set a date and time');return;}
     const st=new Date(dv+'T'+tv).getTime();
     const dur=Math.round((parseFloat(document.getElementById('rf-duration').value)||0)*60);
-    entry={type:'feed',startTime:st,endTime:dur?st+dur*1000:st,duration:dur,side:document.getElementById('rf-side').value,retro:true};
+    entry={type:'feed',startTime:st,endTime:dur?st+dur*1000:st,duration:dur,feedType:document.getElementById('rf-side').value,retro:true};
   } else if (retroType==='nappy'){
     const dv=document.getElementById('rn-date').value,tv=document.getElementById('rn-time').value;
     if(!dv||!tv){showToast('Please set a date and time');return;}
@@ -1197,6 +1175,7 @@ function saveRetroEntry() {
   showToast(isEditing?'Entry updated ✅':'Past entry saved ✅');
 }
 
+// Trends
 function getTypicalMs(type,ageDays) {
   if(ageDays==null)return null;
   const h=hrs=>hrs*3600000;
