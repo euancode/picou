@@ -1,4 +1,4 @@
-const CACHE = 'baby-tracker-v11';
+const CACHE = 'baby-tracker-v12';
 const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
@@ -18,6 +18,20 @@ self.addEventListener('message', e => {
 });
 
 self.addEventListener('fetch', e => {
+  // Navigation (HTML page): network-first so updates are always picked up
+  if (e.request.mode === 'navigate') {
+    e.respondWith(
+      fetch(e.request).then(response => {
+        if (response && response.status === 200) {
+          const clone = response.clone();
+          caches.open(CACHE).then(c => c.put(e.request, clone));
+        }
+        return response;
+      }).catch(() => caches.match(e.request))
+    );
+    return;
+  }
+  // All other assets: cache-first
   e.respondWith(
     caches.match(e.request).then(cached => {
       if (cached) return cached;

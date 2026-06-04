@@ -680,7 +680,7 @@ select.field-inp { cursor: pointer; }
 </div>
 
 <script>
-const APP_VERSION = 11;
+const APP_VERSION = 12;
 let state = { babyName:'Baby', birthDate:null, logs:[], feedSession:null, sleepSession:null };
 let feedType = 'breast';
 let nappyType = 'pee';
@@ -1314,9 +1314,19 @@ function checkForUpdates() {
   if(!('serviceWorker' in navigator)){showToast('Not supported');return;}
   navigator.serviceWorker.getRegistration().then(reg=>{
     if(!reg){showToast('No service worker found');return;}
+    showToast('Checking…');
+    function activate(sw){
+      sw.postMessage({type:'SKIP_WAITING'});
+      showToast('Update found! Reloading… 🔄');
+      setTimeout(()=>location.reload(),900);
+    }
+    reg.addEventListener('updatefound',()=>{
+      const sw=reg.installing;
+      sw.addEventListener('statechange',()=>{ if(sw.state==='installed') activate(sw); });
+    });
     reg.update().then(()=>{
-      if(reg.waiting){reg.waiting.postMessage({type:'SKIP_WAITING'});showToast('Reloading… 🔄');setTimeout(()=>location.reload(),800);}
-      else showToast('Already up to date ✅');
+      if(reg.waiting) activate(reg.waiting);
+      else if(!reg.installing) setTimeout(()=>{ if(!reg.waiting&&!reg.installing) showToast('Already up to date ✅'); },600);
     });
   });
 }
