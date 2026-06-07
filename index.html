@@ -440,6 +440,19 @@ select.field-inp { cursor: pointer; }
 .trend-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .trend-item-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--text-soft); margin-bottom: 3px; }
 .trend-item-val { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 17px; }
+.sync-conflict { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin-bottom: 10px; }
+.sync-conflict-title { font-weight: 800; font-size: 13px; margin-bottom: 8px; }
+.sync-conflict-row { display: flex; gap: 8px; font-size: 12px; color: var(--text-soft); margin-bottom: 4px; }
+.sync-conflict-row b { color: var(--text); width: 46px; flex-shrink: 0; }
+.sync-conflict-btns { display: flex; gap: 6px; margin-top: 10px; }
+.sync-pick {
+  flex: 1; padding: 8px 4px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--card2); color: var(--text-soft); font-size: 11px; font-weight: 700;
+  cursor: pointer; font-family: 'Nunito Sans', sans-serif;
+}
+.sync-pick.sel { background: var(--sleep); color: #fff; border-color: var(--sleep); }
+.sync-qr-img { width: 230px; height: 230px; border-radius: 14px; background: #fff; padding: 12px; }
+.sync-video { width: 100%; border-radius: 14px; background: #000; display: block; }
 .data-btn {
   width: 100%; padding: 15px; border: 1px solid var(--border);
   border-radius: var(--r-sm); background: var(--card);
@@ -629,6 +642,7 @@ select.field-inp { cursor: pointer; }
           <option value="combo">Combination fed</option>
         </select>
       </div>
+      <button class="data-btn" onclick="openSyncModal()"><span class="d-icon">🔗</span> Quick Sync (QR)</button>
       <button class="data-btn" onclick="checkForUpdates()"><span class="d-icon">🔄</span> Check for Updates</button>
       <button class="data-btn" onclick="emailLog()"><span class="d-icon">📧</span> Email Log</button>
       <button class="data-btn" onclick="exportData()"><span class="d-icon">⬆️</span> Export Data (JSON)</button>
@@ -748,8 +762,20 @@ select.field-inp { cursor: pointer; }
   </div>
 </div>
 
+<div class="modal-overlay" id="syncModal" onclick="handleSyncOverlayClick(event)">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <span class="modal-title">🔗 Quick Sync</span>
+      <button class="modal-close" onclick="closeSyncModal()">✕</button>
+    </div>
+    <div class="modal-body" id="syncBody"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script>
-const APP_VERSION = 18;
+const APP_VERSION = 20;
 let state = { babyName:'Baby', birthDate:null, feedingMode:'breast', logs:[], feedSession:null, sleepSession:null };
 let feedType = 'breast';
 let nappyType = 'pee';
@@ -1082,8 +1108,9 @@ function logNappy() {
 function resizeCanvas() {
   const canvas=document.getElementById('timelineCanvas');
   const wrap=canvas.parentElement;
-  canvas.width=(wrap.clientWidth-28)*window.devicePixelRatio||1;
-  canvas.style.width=(wrap.clientWidth-28)+'px';
+  const w=wrap.clientWidth;
+  canvas.width=w*window.devicePixelRatio||1;
+  canvas.style.width=w+'px';
   canvas.height=64*window.devicePixelRatio;
   canvas.style.height='64px';
   drawTimeline();
@@ -1151,10 +1178,11 @@ function drawTimeline() {
   function drawActiveBar(startTime,color,glowRgba) {
     const x1=toX(startTime), barW=W-x1;
     ctx.fillStyle=color; ctx.fillRect(x1,py,barW,ph);
-    const grad=ctx.createLinearGradient(W-24*dpr,0,W,0);
+    const glowW=Math.min(24*dpr,barW), gx=W-glowW;
+    const grad=ctx.createLinearGradient(gx,0,W,0);
     grad.addColorStop(0,glowRgba.replace(',1)','0)'));
     grad.addColorStop(1,glowRgba);
-    ctx.fillStyle=grad; ctx.fillRect(Math.max(x1,W-24*dpr),py,24*dpr,ph);
+    ctx.fillStyle=grad; ctx.fillRect(gx,py,glowW,ph);
     if (barW>44*dpr) {
       const label=formatDur(Math.round((now-startTime)/1000));
       ctx.font=`700 ${10*dpr}px Nunito,sans-serif`;
@@ -1457,6 +1485,266 @@ function importData(event) {
   };
   reader.readAsText(file); event.target.value='';
 }
+// ===== Quick Sync (QR-based, two-device) =====
+const SYNC_WINDOW_MS = 24*3600000;
+const SYNC_MAX_ENTRIES = 20;
+let syncStep = 'intro';
+let syncStream = null;
+let syncScanRAF = null;
+let syncDetector = null;
+let syncMode = null;
+let syncConflicts = [];
+let syncNewEntries = [];
+let syncMergeResult = null;
+let syncVerifyOk = false;
+let syncResultDetail = '';
+
+function openSyncModal() {
+  syncStep='intro'; syncConflicts=[]; syncNewEntries=[]; syncMergeResult=null;
+  renderSyncModal();
+  document.getElementById('syncModal').classList.add('open');
+}
+function closeSyncModal() {
+  syncStopCamera();
+  document.getElementById('syncModal').classList.remove('open');
+}
+function handleSyncOverlayClick(e){ if(e.target===document.getElementById('syncModal')) closeSyncModal(); }
+function syncGoto(step){ syncStep=step; renderSyncModal(); }
+
+function syncEntriesInWindow() {
+  const since=Date.now()-SYNC_WINDOW_MS;
+  return state.logs.filter(l=>l.startTime>=since).slice().sort((a,b)=>b.startTime-a.startTime).slice(0,SYNC_MAX_ENTRIES);
+}
+function syncQR(text) {
+  const qr=qrcode(0,'M');
+  qr.addData(text);
+  qr.make();
+  return qr.createDataURL(6,8);
+}
+function syncEncodeData() {
+  const entries=syncEntriesInWindow();
+  if(!entries.length) return null;
+  const baseTs=Math.min(...entries.map(e=>e.startTime));
+  const baseSec=Math.floor(baseTs/1000);
+  const parts=entries.map(e=>{
+    const off=Math.round((e.startTime-baseTs)/1000);
+    const dur=(e.duration||0)>0?e.duration:'-';
+    let t,x1='-',x2='-';
+    if(e.type==='feed'){ t='f'; x1=e.feedType==='formula'?'f':'b'; x2=e.volume||'-'; }
+    else if(e.type==='nappy'){ t='n'; x1=(e.nappyType||'pee')[0]; }
+    else { t='s'; }
+    return `${off},${t},${dur},${x1},${x2}`;
+  });
+  return `PCSY1|${baseSec}|${parts.join(';')}`;
+}
+function syncDecodeData(text) {
+  const m=/^PCSY1\|(\d+)\|(.*)$/s.exec((text||'').trim());
+  if(!m) return null;
+  const baseTs=parseInt(m[1],10)*1000;
+  return m[2].split(';').filter(Boolean).map(p=>{
+    const [offStr,t,durStr,x1,x2]=p.split(',');
+    const startTime=baseTs+parseInt(offStr,10)*1000;
+    const dur=durStr==='-'?0:parseInt(durStr,10);
+    const type=t==='f'?'feed':t==='n'?'nappy':'sleep';
+    const out={type,startTime,endTime:dur?startTime+dur*1000:startTime,duration:dur};
+    if(type==='feed'){ out.feedType=x1==='f'?'formula':'breast'; if(x2!=='-') out.volume=parseFloat(x2); }
+    else if(type==='nappy'){ out.nappyType={p:'pee',o:'poo',b:'both'}[x1]||'pee'; }
+    return out;
+  });
+}
+function syncFindMatch(incoming) {
+  const tolMs=5*60000;
+  let best=null, bestDiff=Infinity;
+  state.logs.forEach(l=>{
+    if(l.type!==incoming.type) return;
+    const diff=Math.abs(l.startTime-incoming.startTime);
+    if(diff<=tolMs && diff<bestDiff){ best=l; bestDiff=diff; }
+  });
+  if(!best) return null;
+  const sameDur=(best.duration||0)===(incoming.duration||0);
+  const sameDetail = incoming.type!=='feed' || (best.feedType===incoming.feedType && (best.volume||null)===(incoming.volume||null));
+  return {existing:best, exact:bestDiff<60000 && sameDur && sameDetail};
+}
+function syncProcessIncoming(entries) {
+  syncConflicts=[]; syncNewEntries=[];
+  entries.forEach(inc=>{
+    const match=syncFindMatch(inc);
+    if(!match) syncNewEntries.push(inc);
+    else if(!match.exact) syncConflicts.push({incoming:inc, existing:match.existing, choice:null});
+  });
+}
+function syncToLogEntry(inc, id) {
+  const e={id:id||(Date.now()+Math.random()), type:inc.type, startTime:inc.startTime, endTime:inc.endTime||inc.startTime, duration:inc.duration||0, retro:true};
+  if(inc.type==='feed'){ e.feedType=inc.feedType; if(inc.volume) e.volume=inc.volume; }
+  if(inc.type==='nappy'){ e.nappyType=inc.nappyType; }
+  return e;
+}
+function syncApplyMerge() {
+  let added=0, replaced=0;
+  syncNewEntries.forEach(inc=>{ state.logs.push(syncToLogEntry(inc)); added++; });
+  syncConflicts.forEach(c=>{
+    if(c.choice==='theirs'){
+      const idx=state.logs.findIndex(l=>l.id===c.existing.id);
+      if(idx!==-1){ state.logs[idx]=syncToLogEntry(c.incoming, c.existing.id); replaced++; }
+    } else if(c.choice==='both'){ state.logs.push(syncToLogEntry(c.incoming)); added++; }
+  });
+  state.logs.sort((a,b)=>b.startTime-a.startTime);
+  saveState(); refreshHistory(); updateNowPanel();
+  return {added, replaced};
+}
+function syncPick(idx,choice){ syncConflicts[idx].choice=choice; renderSyncModal(); }
+function syncFinishMerge(){ syncMergeResult=syncApplyMerge(); syncGoto('merged'); }
+function syncFmtEntry(e) {
+  const t=new Date(e.startTime).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  let extra='';
+  if(e.type==='feed') extra=(e.feedType==='formula'?'🍼 Formula':'🤱 Breast')+(e.volume?` · ${e.volume}ml`:'');
+  else if(e.type==='nappy') extra={pee:'💛 Pee',poo:'💩 Poo',both:'💛💩 Both'}[e.nappyType]||'';
+  const dur=e.duration?formatDur(e.duration):'';
+  return `${t}${dur?' · '+dur:''}${extra?' · '+extra:''}`;
+}
+function syncRenderConflictCard(c, idx) {
+  const label={feed:'🤱 Feed',nappy:'🩲 Nappy',sleep:'😴 Sleep'}[c.incoming.type];
+  return `<div class="sync-conflict">
+    <div class="sync-conflict-title">${label} around ${new Date(c.existing.startTime).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div>
+    <div class="sync-conflict-row"><b>Mine</b><span>${syncFmtEntry(c.existing)}</span></div>
+    <div class="sync-conflict-row"><b>Theirs</b><span>${syncFmtEntry(c.incoming)}</span></div>
+    <div class="sync-conflict-btns">
+      <button class="sync-pick ${c.choice==='mine'?'sel':''}" onclick="syncPick(${idx},'mine')">Keep mine</button>
+      <button class="sync-pick ${c.choice==='theirs'?'sel':''}" onclick="syncPick(${idx},'theirs')">Keep theirs</button>
+      <button class="sync-pick ${c.choice==='both'?'sel':''}" onclick="syncPick(${idx},'both')">Keep both</button>
+    </div>
+  </div>`;
+}
+function syncComputeChecksum() {
+  const entries=syncEntriesInWindow();
+  const sig=entries.map(e=>`${e.type[0]}${e.startTime}${e.duration||0}${e.feedType||''}${e.volume||''}${e.nappyType||''}`).sort().join('|');
+  let h=0;
+  for(let i=0;i<sig.length;i++){ h=(h*31+sig.charCodeAt(i))|0; }
+  const hash=(h>>>0).toString(16).slice(0,6);
+  const latest=entries.length?entries[0].startTime:0;
+  return {count:entries.length, latest, hash, str:`PCKY1|${entries.length}|${Math.floor(latest/1000)}|${hash}`};
+}
+function syncDecodeChecksum(text) {
+  const m=/^PCKY1\|(\d+)\|(\d+)\|([0-9a-f]+)$/.exec((text||'').trim());
+  if(!m) return null;
+  return {count:parseInt(m[1],10), latest:parseInt(m[2],10)*1000, hash:m[3]};
+}
+async function syncStartCamera(onResult) {
+  const video=document.getElementById('syncVideo');
+  if(!video) return;
+  if(!('BarcodeDetector' in window)){
+    showToast('❌ QR scanning isn\'t supported in this browser');
+    document.getElementById('syncScanHint').textContent='Update your browser to use the camera scanner, or use Export/Import instead.';
+    return;
+  }
+  try {
+    syncStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+  } catch(err){ showToast('❌ Camera access denied'); return; }
+  video.srcObject=syncStream;
+  await video.play().catch(()=>{});
+  syncDetector=new BarcodeDetector({formats:['qr_code']});
+  const loop=async()=>{
+    if(!syncStream) return;
+    try{
+      const codes=await syncDetector.detect(video);
+      if(codes && codes.length){ onResult(codes[0].rawValue); return; }
+    }catch(e){}
+    syncScanRAF=requestAnimationFrame(loop);
+  };
+  loop();
+}
+function syncStopCamera() {
+  if(syncScanRAF) cancelAnimationFrame(syncScanRAF);
+  syncScanRAF=null;
+  if(syncStream){ syncStream.getTracks().forEach(t=>t.stop()); syncStream=null; }
+  syncDetector=null;
+}
+function syncOnScanned(text) {
+  syncStopCamera();
+  if(syncMode==='data'){
+    const entries=syncDecodeData(text);
+    if(!entries){ showToast('❌ Not a Picou sync code — try again'); syncGoto('scan'); return; }
+    syncProcessIncoming(entries);
+    if(syncConflicts.length) syncGoto('conflicts');
+    else { syncMergeResult=syncApplyMerge(); syncGoto('merged'); }
+  } else {
+    const chk=syncDecodeChecksum(text);
+    if(!chk){ showToast('❌ Not a Picou check code — try again'); syncGoto('verify-scan'); return; }
+    const mine=syncComputeChecksum();
+    syncVerifyOk=(chk.count===mine.count && chk.hash===mine.hash);
+    syncResultDetail=syncVerifyOk
+      ? `Both phones have the same ${mine.count} entries from the last 24h.`
+      : `You have ${mine.count} entries, they have ${chk.count}. Try Quick Sync again to catch any stragglers.`;
+    syncGoto('result');
+  }
+}
+function renderSyncModal() {
+  const body=document.getElementById('syncBody');
+  syncStopCamera();
+  if(syncStep==='intro'){
+    body.innerHTML=`
+      <div style="font-size:13px;color:var(--text-soft);margin-bottom:16px;line-height:1.5">Quick Sync shares your last 24 hours of entries with another phone using QR codes — no internet, accounts or setup needed. Open this on both phones and follow along together.</div>
+      <button class="retro-save-btn" onclick="syncGoto('show')">Start — Show My Code</button>`;
+  } else if(syncStep==='show'){
+    const data=syncEncodeData();
+    if(!data){
+      body.innerHTML=`<div style="text-align:center;padding:30px 0;color:var(--text-soft);font-size:13px">No entries in the last 24 hours to share.</div>
+        <button class="retro-save-btn" onclick="syncGoto('scan')">Next: Scan their code →</button>`;
+    } else {
+      body.innerHTML=`
+        <div style="text-align:center">
+          <img class="sync-qr-img" src="${syncQR(data)}" alt="Sync QR code">
+          <div style="font-size:12px;color:var(--text-soft);margin-top:10px">Hold this up for the other phone to scan</div>
+        </div>
+        <button class="retro-save-btn" style="margin-top:20px" onclick="syncGoto('scan')">Next: Scan their code →</button>`;
+    }
+  } else if(syncStep==='scan'){
+    body.innerHTML=`
+      <div style="font-size:12px;color:var(--text-soft);margin-bottom:10px;text-align:center">Point your camera at the other phone's QR code</div>
+      <video id="syncVideo" class="sync-video" playsinline muted autoplay></video>
+      <div id="syncScanHint" style="font-size:11px;color:var(--text-muted);margin-top:8px;text-align:center">Scanning…</div>`;
+    syncMode='data';
+    syncStartCamera(syncOnScanned);
+  } else if(syncStep==='conflicts'){
+    body.innerHTML=`
+      <div style="font-size:13px;color:var(--text-soft);margin-bottom:14px">Found ${syncConflicts.length} similar ${syncConflicts.length===1?'entry':'entries'} — pick which to keep:</div>
+      ${syncConflicts.map((c,i)=>syncRenderConflictCard(c,i)).join('')}
+      <button class="retro-save-btn" style="margin-top:6px" ${syncConflicts.some(c=>!c.choice)?'disabled':''} onclick="syncFinishMerge()">Apply &amp; Continue</button>`;
+  } else if(syncStep==='merged'){
+    body.innerHTML=`
+      <div style="text-align:center;padding:20px 0">
+        <div style="font-size:34px;margin-bottom:8px">✅</div>
+        <div style="font-weight:800;font-size:16px">Merged ${syncMergeResult.added} new ${syncMergeResult.added===1?'entry':'entries'}</div>
+        ${syncMergeResult.replaced?`<div style="font-size:12px;color:var(--text-soft);margin-top:4px">${syncMergeResult.replaced} updated from theirs</div>`:''}
+      </div>
+      <button class="retro-save-btn" onclick="syncGoto('verify-show')">Final check — Show my code</button>`;
+  } else if(syncStep==='verify-show'){
+    const chk=syncComputeChecksum();
+    body.innerHTML=`
+      <div style="text-align:center">
+        <img class="sync-qr-img" style="width:190px;height:190px" src="${syncQR(chk.str)}" alt="Verification QR code">
+        <div style="font-size:12px;color:var(--text-soft);margin-top:10px">${chk.count} entries · code ${chk.hash}</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Show this, then scan theirs to confirm you match</div>
+      </div>
+      <button class="retro-save-btn" style="margin-top:20px" onclick="syncGoto('verify-scan')">Next: Scan their check code →</button>`;
+  } else if(syncStep==='verify-scan'){
+    body.innerHTML=`
+      <div style="font-size:12px;color:var(--text-soft);margin-bottom:10px;text-align:center">Point your camera at the other phone's check code</div>
+      <video id="syncVideo" class="sync-video" playsinline muted autoplay></video>
+      <div id="syncScanHint" style="font-size:11px;color:var(--text-muted);margin-top:8px;text-align:center">Scanning…</div>`;
+    syncMode='check';
+    syncStartCamera(syncOnScanned);
+  } else if(syncStep==='result'){
+    body.innerHTML=`
+      <div style="text-align:center;padding:20px 0">
+        <div style="font-size:40px;margin-bottom:10px">${syncVerifyOk?'✅':'⚠️'}</div>
+        <div style="font-weight:800;font-size:16px">${syncVerifyOk?'Both devices match!':'Counts don’t match'}</div>
+        <div style="font-size:12px;color:var(--text-soft);margin-top:6px">${syncResultDetail}</div>
+      </div>
+      <button class="retro-save-btn" onclick="closeSyncModal()">Done</button>`;
+  }
+}
+
 function clearAllData() {
   if(!confirm('Clear ALL tracking data? This cannot be undone.')) return;
   state.logs=[]; state.feedSession=null; state.sleepSession=null;
