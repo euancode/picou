@@ -760,6 +760,7 @@ select.field-inp { cursor: pointer; }
       <button class="data-btn" id="installAppBtn" style="display:none" onclick="installApp()"><span class="d-icon">📲</span> Add Picou to Home Screen</button>
       <a class="tip-btn" href="https://buymeacoffee.com/picou" target="_blank" rel="noopener"><span>☕</span> Buy me a coffee</a>
       <button class="data-btn" onclick="shareApp()"><span class="d-icon">📣</span> Tell other parents about Picou</button>
+      <button class="data-btn" onclick="openFeedbackModal()"><span class="d-icon">💬</span> Send Feedback</button>
 
       <button class="adv-toggle" id="advToggleBtn" onclick="toggleAdvanced()">Advanced <span class="chev">▾</span></button>
       <div class="adv-body" id="advBody">
@@ -917,6 +918,22 @@ select.field-inp { cursor: pointer; }
   </div>
 </div>
 
+<div class="modal-overlay" id="feedbackModal" onclick="handleFeedbackOverlayClick(event)">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <span class="modal-title">💬 Send Feedback</span>
+      <button class="modal-close" onclick="closeFeedbackModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:var(--text-soft);margin-bottom:12px;line-height:1.5">Found a bug? Got an idea? Just want to say hi? Your message goes straight to the person building Picou — thank you for taking the time.</div>
+      <textarea class="notes-inp" id="feedbackArea" rows="6" placeholder="Tell us what's on your mind…"></textarea>
+      <input type="email" class="notes-inp" id="feedbackEmail" style="margin-top:8px" placeholder="Your email (optional, if you'd like a reply)">
+      <button class="retro-save-btn" style="margin-top:14px" onclick="sendFeedback()">📨 Send Feedback</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="scheduleModal" onclick="handleScheduleOverlayClick(event)">
   <div class="modal-sheet">
     <div class="modal-handle"></div>
@@ -942,7 +959,7 @@ select.field-inp { cursor: pointer; }
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script>
-const APP_VERSION = 34;
+const APP_VERSION = 35;
 let state = { babyName:'Baby', birthDate:null, feedingMode:'breast', logs:[], feedSession:null, sleepSession:null };
 let feedType = 'breast';
 
@@ -1716,7 +1733,7 @@ function computeTrend(type,ageDays,now){
   for(let i=1;i<logs.length;i++)intervals.push(logs[i].startTime-logs[i-1].startTime);
   const actualAvg=intervals.length?intervals.reduce((a,b)=>a+b,0)/intervals.length:null;
   let blended=actualAvg;
-  if(typical!=null&&actualAvg!=null){const w=Math.min(intervals.length/8,1);blended=w*actualAvg+(1-w)*typical;}
+  if(typical!=null&&actualAvg!=null){const w=Math.min(intervals.length/16,0.65);blended=w*actualAvg+(1-w)*typical;}
   else if(actualAvg==null)blended=typical;
   const last=logs[logs.length-1];
   return{avgMs:actualAvg,blended,last,next:blended!=null?last.startTime+blended:null,count:logs.length,typical};
@@ -2019,6 +2036,27 @@ function installApp() {
     return;
   }
   alert('Look for "Install app" or "Add to Home Screen" in your browser\'s menu (often the ⋮ menu or the share icon) to add Picou to your home screen.');
+}
+function feedbackEmailAddress() {
+  return ['tartanarmy+picou', 'gmail.com'].join('@');
+}
+function openFeedbackModal() {
+  document.getElementById('feedbackArea').value='';
+  document.getElementById('feedbackEmail').value='';
+  document.getElementById('feedbackModal').classList.add('open');
+}
+function closeFeedbackModal() { document.getElementById('feedbackModal').classList.remove('open'); }
+function handleFeedbackOverlayClick(e){ if(e.target===document.getElementById('feedbackModal')) closeFeedbackModal(); }
+function sendFeedback() {
+  const msg=(document.getElementById('feedbackArea').value||'').trim();
+  const replyTo=(document.getElementById('feedbackEmail').value||'').trim();
+  if(!msg){ showToast('Write a message first'); return; }
+  const lines=[msg, '', `— sent from Picou v${APP_VERSION}${state.babyName?` · ${state.babyName}`:''}`];
+  if(replyTo) lines.push(`Reply to: ${replyTo}`);
+  const body=lines.join('\n');
+  window.location.href='mailto:'+encodeURIComponent(feedbackEmailAddress())+'?subject='+encodeURIComponent('Picou feedback')+'&body='+encodeURIComponent(body);
+  closeFeedbackModal();
+  showToast('Opening your mail app — thanks for the feedback! 💌');
 }
 function shareApp() {
   const text=`I've been using Picou to track ${state.babyName}'s feeds, sleep and nappies — it's simple, private and works offline. Worth a look if you're after something similar:`;

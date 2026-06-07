@@ -1,4 +1,4 @@
-const CACHE = 'baby-tracker-v34';
+const CACHE = 'baby-tracker-v35';
 const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
