@@ -942,7 +942,7 @@ select.field-inp { cursor: pointer; }
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script>
-const APP_VERSION = 33;
+const APP_VERSION = 34;
 let state = { babyName:'Baby', birthDate:null, feedingMode:'breast', logs:[], feedSession:null, sleepSession:null };
 let feedType = 'breast';
 
@@ -2031,31 +2031,44 @@ function shareApp() {
     window.location.href='mailto:?subject='+encodeURIComponent('Picou — baby tracker')+'&body='+encodeURIComponent(`${text}\n\n${url}`);
   }
 }
-function emailLog() {
-  const now = Date.now();
-  const since = now - 48*3600000;
-  const recent = state.logs.filter(l => l.startTime >= since).slice().sort((a,b) => a.startTime - b.startTime);
-  const lines = recent.map(l => {
-    const t = new Date(l.startTime).toLocaleString([],{weekday:'short',hour:'2-digit',minute:'2-digit',day:'numeric',month:'short'});
-    if (l.type==='feed') {
-      const tp = l.feedType==='formula'?'Formula':'Breast';
-      return `${t}  Feed (${tp})${l.duration?' '+formatDur(l.duration):''}${l.volume?' '+l.volume+'ml':''}`;
-    }
-    if (l.type==='sleep') return `${t}  Sleep${l.duration?' '+formatDur(l.duration):''}`;
-    if (l.type==='nappy') {
-      const tp = {pee:'Pee',poo:'Poo',both:'Both'}[l.nappyType]||'';
-      return `${t}  Nappy (${tp})${l.colour?' '+l.colour:''}`;
-    }
-    return t;
-  });
-  const body = lines.length
-    ? `${state.babyName} — last 48h log\n\n${lines.join('\n')}`
-    : `${state.babyName} — no entries in last 48h`;
-  if (navigator.share) {
-    navigator.share({ title: `${state.babyName} log`, text: body }).catch(()=>{});
-  } else {
-    window.location.href = 'mailto:?subject='+encodeURIComponent(state.babyName+' log')+'&body='+encodeURIComponent(body);
+function emailLogLine(l) {
+  const t = new Date(l.startTime).toLocaleString([],{weekday:'short',hour:'2-digit',minute:'2-digit',day:'numeric',month:'short'});
+  if (l.type==='feed') {
+    const tp = l.feedType==='formula'?'Formula':'Breast';
+    return `${t}  Feed (${tp})${l.duration?' '+formatDur(l.duration):''}${l.volume?' '+l.volume+'ml':''}`;
   }
+  if (l.type==='sleep') return `${t}  Sleep${l.duration?' '+formatDur(l.duration):''}`;
+  if (l.type==='nappy') {
+    const tp = {pee:'Pee',poo:'Poo',both:'Both'}[l.nappyType]||'';
+    return `${t}  Nappy (${tp})${l.colour?' '+l.colour:''}`;
+  }
+  return t;
+}
+function emailLog() {
+  const sorted = state.logs.slice().sort((a,b) => a.startTime - b.startTime);
+  const lines = sorted.map(emailLogLine);
+  const fullBody = lines.length
+    ? `${state.babyName} — full log (${lines.length} ${lines.length===1?'entry':'entries'})\n\n${lines.join('\n')}`
+    : `${state.babyName} — no entries logged yet`;
+  if (navigator.share) {
+    navigator.share({ title: `${state.babyName} log`, text: fullBody }).catch(()=>{});
+    return;
+  }
+  // mailto links have practical URL-length limits — keep the body within a safe size,
+  // favouring the most recent entries, and point to the full export for everything else
+  const MAX_CHARS = 1500;
+  let mailBody = fullBody;
+  if (fullBody.length > MAX_CHARS) {
+    const kept = [];
+    let len = 0;
+    for (let i = lines.length - 1; i >= 0; i--) {
+      if (len + lines[i].length + 1 > MAX_CHARS) break;
+      kept.unshift(lines[i]);
+      len += lines[i].length + 1;
+    }
+    mailBody = `${state.babyName} — log (most recent ${kept.length} of ${lines.length} entries — too long to email in full; use Export Data in More → Advanced for everything)\n\n${kept.join('\n')}`;
+  }
+  window.location.href = 'mailto:?subject='+encodeURIComponent(state.babyName+' log')+'&body='+encodeURIComponent(mailBody);
 }
 
 function exportData() {
@@ -2089,8 +2102,6 @@ function importData(event) {
   reader.readAsText(file); event.target.value='';
 }
 // ===== Quick Sync (QR-based, two-device) =====
-const SYNC_WINDOW_MS = 24*3600000;
-const SYNC_MAX_ENTRIES = 20;
 let syncStep = 'intro';
 let syncStream = null;
 let syncScanRAF = null;
@@ -2102,6 +2113,8 @@ let syncMergeResult = null;
 let syncVerifyOk = false;
 let syncResultDetail = '';
 let syncCurrentCode = null;
+let syncCurrentCount = 0;
+let syncIncomingProfile = null;
 
 function openSyncModal() {
   syncStep='intro'; syncConflicts=[]; syncNewEntries=[]; syncMergeResult=null;
@@ -2115,9 +2128,11 @@ function closeSyncModal() {
 function handleSyncOverlayClick(e){ if(e.target===document.getElementById('syncModal')) closeSyncModal(); }
 function syncGoto(step){ syncStep=step; renderSyncModal(); }
 
-function syncEntriesInWindow() {
-  const since=Date.now()-SYNC_WINDOW_MS;
-  return state.logs.filter(l=>l.startTime>=since).slice().sort((a,b)=>b.startTime-a.startTime).slice(0,SYNC_MAX_ENTRIES);
+function syncAllEntries() {
+  return state.logs.slice().sort((a,b)=>b.startTime-a.startTime);
+}
+function syncProfilePart() {
+  return encodeURIComponent(JSON.stringify({n:state.babyName||'', b:state.birthDate||'', f:state.feedingMode||''}));
 }
 function syncQR(text) {
   const qr=qrcode(0,'M');
@@ -2125,8 +2140,10 @@ function syncQR(text) {
   qr.make();
   return qr.createDataURL(6,8);
 }
-function syncEncodeData() {
-  const entries=syncEntriesInWindow();
+function syncFitsInQR(text) {
+  try { const qr=qrcode(0,'M'); qr.addData(text); qr.make(); return true; } catch(e){ return false; }
+}
+function syncEncodeEntries(entries) {
   if(!entries.length) return null;
   const baseTs=Math.min(...entries.map(e=>e.startTime));
   const baseSec=Math.floor(baseTs/1000);
@@ -2139,13 +2156,27 @@ function syncEncodeData() {
     else { t='s'; }
     return `${off},${t},${dur},${x1},${x2}`;
   });
-  return `PCSY1|${baseSec}|${parts.join(';')}`;
+  return `PCSY2|${syncProfilePart()}|${baseSec}|${parts.join(';')}`;
 }
-function syncDecodeData(text) {
-  const m=/^PCSY1\|(\d+)\|(.*)$/s.exec((text||'').trim());
-  if(!m) return null;
-  const baseTs=parseInt(m[1],10)*1000;
-  return m[2].split(';').filter(Boolean).map(p=>{
+// Builds the full all-data code, plus a QR-safe variant trimmed to the most
+// recent entries that still fit within a single scannable QR code.
+function syncBuildShowData() {
+  const all=syncAllEntries();
+  if(!all.length) return null;
+  const full=syncEncodeEntries(all);
+  let qrData=full, qrCount=all.length;
+  if(!syncFitsInQR(full)){
+    let n=all.length;
+    while(n>1){
+      n = n>40 ? Math.floor(n*0.85) : n-1;
+      const candidate=syncEncodeEntries(all.slice(0,n));
+      if(syncFitsInQR(candidate)){ qrData=candidate; qrCount=n; break; }
+    }
+  }
+  return {full, total:all.length, qrData, qrCount};
+}
+function syncParseEntries(str, baseTs) {
+  return str.split(';').filter(Boolean).map(p=>{
     const [offStr,t,durStr,x1,x2]=p.split(',');
     const startTime=baseTs+parseInt(offStr,10)*1000;
     const dur=durStr==='-'?0:parseInt(durStr,10);
@@ -2155,6 +2186,32 @@ function syncDecodeData(text) {
     else if(type==='nappy'){ out.nappyType={p:'pee',o:'poo',b:'both'}[x1]||'pee'; }
     return out;
   });
+}
+function syncDecodeData(text) {
+  const trimmed=(text||'').trim();
+  let m=/^PCSY2\|([^|]*)\|(\d+)\|([\s\S]*)$/.exec(trimmed);
+  if(m){
+    let profile=null;
+    try{ profile=JSON.parse(decodeURIComponent(m[1])); }catch(e){}
+    return {profile, entries:syncParseEntries(m[3], parseInt(m[2],10)*1000)};
+  }
+  m=/^PCSY1\|(\d+)\|([\s\S]*)$/.exec(trimmed);
+  if(m) return {profile:null, entries:syncParseEntries(m[2], parseInt(m[1],10)*1000)};
+  return null;
+}
+function syncAdoptIncomingProfile(profile) {
+  if(!profile) return false;
+  let changed=false;
+  if(profile.n && (!state.babyName || state.babyName==='Baby')){ state.babyName=profile.n; changed=true; }
+  if(profile.b && !state.birthDate){ state.birthDate=profile.b; changed=true; }
+  if(changed && profile.f) state.feedingMode=profile.f;
+  if(changed){
+    document.getElementById('babyNameDisplay').textContent=state.babyName||'Baby';
+    document.getElementById('birthDateInput').value=state.birthDate||'';
+    document.getElementById('feedingModeInput').value=state.feedingMode||'breast';
+    updateAgeDisplay();
+  }
+  return changed;
 }
 function syncFindMatch(incoming) {
   const tolMs=5*60000;
@@ -2193,8 +2250,10 @@ function syncApplyMerge() {
     } else if(c.choice==='both'){ state.logs.push(syncToLogEntry(c.incoming)); added++; }
   });
   state.logs.sort((a,b)=>b.startTime-a.startTime);
+  const profileAdopted=syncAdoptIncomingProfile(syncIncomingProfile);
+  syncIncomingProfile=null;
   saveState(); refreshHistory(); updateNowPanel();
-  return {added, replaced};
+  return {added, replaced, profileAdopted};
 }
 function syncPick(idx,choice){ syncConflicts[idx].choice=choice; renderSyncModal(); }
 function syncFinishMerge(){ syncMergeResult=syncApplyMerge(); syncGoto('merged'); }
@@ -2220,7 +2279,7 @@ function syncRenderConflictCard(c, idx) {
   </div>`;
 }
 function syncComputeChecksum() {
-  const entries=syncEntriesInWindow();
+  const entries=syncAllEntries();
   const sig=entries.map(e=>`${e.type[0]}${e.startTime}${e.duration||0}${e.feedType||''}${e.volume||''}${e.nappyType||''}`).sort().join('|');
   let h=0;
   for(let i=0;i<sig.length;i++){ h=(h*31+sig.charCodeAt(i))|0; }
@@ -2270,7 +2329,7 @@ function syncStopCamera() {
 }
 function syncShareCode() {
   if(!syncCurrentCode) return;
-  const text=`${state.babyName}'s Picou sync code (last 24h of entries):\n\n${syncCurrentCode}\n\nOpen Picou → More → Quick Sync, then paste this code in to import it.`;
+  const text=`${state.babyName}'s Picou sync code (${syncCurrentCount} ${syncCurrentCount===1?'entry':'entries'}, plus ${state.babyName}'s name, birth date and feeding mode):\n\n${syncCurrentCode}\n\nOpen Picou → More → Quick Sync, then paste this code in to import it.`;
   if (navigator.share) {
     navigator.share({ title:'Picou sync code', text }).catch(()=>{});
   } else if (navigator.clipboard) {
@@ -2288,9 +2347,10 @@ function syncApplyPasted() {
 function syncOnScanned(text) {
   syncStopCamera();
   if(syncMode==='data'){
-    const entries=syncDecodeData(text);
-    if(!entries){ showToast('❌ Not a Picou sync code — try again'); syncGoto('scan'); return; }
-    syncProcessIncoming(entries);
+    const decoded=syncDecodeData(text);
+    if(!decoded){ showToast('❌ Not a Picou sync code — try again'); syncGoto('scan'); return; }
+    syncIncomingProfile=decoded.profile;
+    syncProcessIncoming(decoded.entries);
     if(syncConflicts.length) syncGoto('conflicts');
     else { syncMergeResult=syncApplyMerge(); syncGoto('merged'); }
   } else {
@@ -2299,7 +2359,7 @@ function syncOnScanned(text) {
     const mine=syncComputeChecksum();
     syncVerifyOk=(chk.count===mine.count && chk.hash===mine.hash);
     syncResultDetail=syncVerifyOk
-      ? `Both phones have the same ${mine.count} entries from the last 24h.`
+      ? `Both phones have the same ${mine.count} entries.`
       : `You have ${mine.count} entries, they have ${chk.count}. Try Quick Sync again to catch any stragglers.`;
     syncGoto('result');
   }
@@ -2309,19 +2369,24 @@ function renderSyncModal() {
   syncStopCamera();
   if(syncStep==='intro'){
     body.innerHTML=`
-      <div style="font-size:13px;color:var(--text-soft);margin-bottom:16px;line-height:1.5">Quick Sync shares your last 24 hours of entries with another phone — no internet, accounts or setup needed. Either scan QR codes together in person, or send a sync code through any messaging app for someone further away.</div>
+      <div style="font-size:13px;color:var(--text-soft);margin-bottom:16px;line-height:1.5">Quick Sync shares your whole tracking history — plus ${state.babyName}'s name, birth date and feeding mode — with another phone, so a new device can be set up in seconds. No internet, accounts or setup needed. Either scan QR codes together in person, or send a sync code through any messaging app for someone further away.</div>
       <button class="retro-save-btn" onclick="syncGoto('show')">Start — Show My Code</button>`;
   } else if(syncStep==='show'){
-    const data=syncEncodeData();
-    syncCurrentCode=data;
-    if(!data){
-      body.innerHTML=`<div style="text-align:center;padding:30px 0;color:var(--text-soft);font-size:13px">No entries in the last 24 hours to share.</div>
+    const built=syncBuildShowData();
+    syncCurrentCode=built?built.full:null;
+    syncCurrentCount=built?built.total:0;
+    if(!built){
+      body.innerHTML=`<div style="text-align:center;padding:30px 0;color:var(--text-soft);font-size:13px">No entries logged yet to share.</div>
         <button class="retro-save-btn" onclick="syncGoto('scan')">Next: Scan their code →</button>`;
     } else {
+      const note=built.qrCount<built.total
+        ? `<div style="font-size:11px;color:var(--text-muted);margin-top:8px;line-height:1.4">QR codes can only hold so much — this one carries your most recent ${built.qrCount} of ${built.total} entries. Use "Send code via message" below to share everything in one go.</div>`
+        : '';
       body.innerHTML=`
         <div style="text-align:center">
-          <img class="sync-qr-img" src="${syncQR(data)}" alt="Sync QR code">
+          <img class="sync-qr-img" src="${syncQR(built.qrData)}" alt="Sync QR code">
           <div style="font-size:12px;color:var(--text-soft);margin-top:10px">Hold this up for the other phone to scan</div>
+          ${note}
           <div style="font-size:11px;color:var(--text-muted);margin:14px 0 8px">— or, if they're not with you —</div>
           <button class="data-btn" onclick="syncShareCode()"><span class="d-icon">📤</span> Send code via message</button>
         </div>
@@ -2334,7 +2399,7 @@ function renderSyncModal() {
       <div id="syncScanHint" style="font-size:11px;color:var(--text-muted);margin-top:8px;text-align:center">Scanning…</div>
       <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
         <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;text-align:center">Got a code via message instead? Paste it below</div>
-        <textarea class="notes-inp" id="syncPasteArea" rows="3" placeholder="PCSY1|..."></textarea>
+        <textarea class="notes-inp" id="syncPasteArea" rows="3" placeholder="PCSY2|..."></textarea>
         <button class="retro-save-btn" style="margin-top:8px" onclick="syncApplyPasted()">Apply pasted code</button>
       </div>`;
     syncMode='data';
@@ -2350,6 +2415,7 @@ function renderSyncModal() {
         <div style="font-size:34px;margin-bottom:8px">✅</div>
         <div style="font-weight:800;font-size:16px">Merged ${syncMergeResult.added} new ${syncMergeResult.added===1?'entry':'entries'}</div>
         ${syncMergeResult.replaced?`<div style="font-size:12px;color:var(--text-soft);margin-top:4px">${syncMergeResult.replaced} updated from theirs</div>`:''}
+        ${syncMergeResult.profileAdopted?`<div style="font-size:12px;color:var(--text-soft);margin-top:4px">Also picked up ${state.babyName}'s name${state.birthDate?', birth date':''} and feeding mode from their code 👶</div>`:''}
       </div>
       <button class="retro-save-btn" onclick="syncGoto('verify-show')">Final check — Show my code</button>`;
   } else if(syncStep==='verify-show'){
