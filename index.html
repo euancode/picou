@@ -957,7 +957,7 @@ select.field-inp { cursor: pointer; }
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script>
-const APP_VERSION = 37;
+const APP_VERSION = 38;
 let state = { babyName:'Baby', birthDate:null, feedingMode:'breast', logs:[], feedSession:null, sleepSession:null };
 let feedType = 'breast';
 
@@ -1720,6 +1720,12 @@ function getTypicalMs(type,ageDays) {
   return null;
 }
 const TREND_MIN_COUNT = 5, TREND_MIN_DAYS = 3;
+let showAllTimeStats = localStorage.getItem('picouShowAllTime')==='1';
+function toggleAllTimeStats() {
+  showAllTimeStats=!showAllTimeStats;
+  localStorage.setItem('picouShowAllTime', showAllTimeStats?'1':'0');
+  refreshTrends();
+}
 function trendDataInfo(label, count) {
   alert(`Not enough data yet for a reliable ${label.toLowerCase()} trend.\n\nWe recommend logging at least ${TREND_MIN_COUNT} ${label.toLowerCase()} over ${TREND_MIN_DAYS}+ days before relying on a personalised prediction.\n\nYou've logged ${count} so far — keep going and this will fill in automatically.`);
 }
@@ -1727,11 +1733,12 @@ function computeTrend(type,ageDays,now){
   const logs=state.logs.filter(l=>l.type===type).slice().sort((a,b)=>a.startTime-b.startTime);
   const typical=getTypicalMs(type,ageDays);
   if(!logs.length)return{avgMs:null,blended:typical,last:null,next:null,count:0,typical};
+  const since=now-24*3600000;
   const intervals=[];
-  for(let i=1;i<logs.length;i++)intervals.push(logs[i].startTime-logs[i-1].startTime);
+  for(let i=1;i<logs.length;i++){if(logs[i].startTime>=since)intervals.push(logs[i].startTime-logs[i-1].startTime);}
   const actualAvg=intervals.length?intervals.reduce((a,b)=>a+b,0)/intervals.length:null;
   let blended=actualAvg;
-  if(typical!=null&&actualAvg!=null){const w=Math.min(intervals.length/16,0.65);blended=w*actualAvg+(1-w)*typical;}
+  if(typical!=null&&actualAvg!=null){const w=Math.min(intervals.length/8,0.65);blended=w*actualAvg+(1-w)*typical;}
   else if(actualAvg==null)blended=typical;
   const last=logs[logs.length-1];
   return{avgMs:actualAvg,blended,last,next:blended!=null?last.startTime+blended:null,count:logs.length,typical};
@@ -1775,17 +1782,20 @@ function refreshTrends() {
           <div class="trend-compare-sub">${lcLabel} a day</div>
         </div>
       </div>`;
+    const singular=type.charAt(0).toUpperCase()+type.slice(1);
+    const allTimeItem=showAllTimeStats?`<div><div class="trend-item-label">All time</div><div class="trend-item-val">${t.count}</div></div>`:'';
     return`<div class="trend-card" style="border-left-color:${bc}">
       <div class="trend-title" style="color:${color}">${emoji} ${label}</div>
       ${compare}
       <div class="trend-grid">
-        <div><div class="trend-item-label">All time</div><div class="trend-item-val">${t.count}</div></div>
-        <div><div class="trend-item-label">Your avg gap</div><div class="trend-item-val" style="font-size:15px">${fmtMs(t.avgMs)}</div></div>
-        <div><div class="trend-item-label">Last</div><div class="trend-item-val" style="font-size:15px">${t.last?fmtTime(t.last.startTime):'–'}</div></div>
+        ${allTimeItem}
+        <div><div class="trend-item-label">Avg gap · 24h</div><div class="trend-item-val" style="font-size:15px">${fmtMs(t.avgMs)}</div></div>
+        <div><div class="trend-item-label">Last ${singular}</div><div class="trend-item-val" style="font-size:15px">${t.last?fmtTime(t.last.startTime):'–'}</div></div>
         <div><div class="trend-item-label">Next predicted</div><div class="trend-item-val" style="font-size:13px;font-weight:700">${enough?fmtNext(t.next):warnBtn}</div></div>
       </div>
     </div>`;
-  }).join('');
+  }).join('')
+  + `<button class="adv-toggle${showAllTimeStats?' open':''}" onclick="toggleAllTimeStats()">${showAllTimeStats?'Hide':'Show'} all-time stats <span class="chev">▾</span></button>`;
 }
 
 // Quick Add — natural language single entry
