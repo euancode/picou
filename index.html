@@ -674,6 +674,14 @@ select.field-inp { cursor: pointer; }
         <div class="sp-lbl" data-normal="Sleep today">Sleep today</div>
       </div>
     </div>
+
+    <div class="next-card" id="feedBreakdownCard" style="display:none">
+      <div class="nx-icon">🍼</div>
+      <div class="nx-body">
+        <div class="nx-label">Feeds · last 24h</div>
+        <div class="nx-action" id="fbText" style="font-size:13px"></div>
+      </div>
+    </div>
   </div>
 
   <!-- LOG PANEL -->
@@ -912,7 +920,7 @@ select.field-inp { cursor: pointer; }
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script>
-const APP_VERSION = 28;
+const APP_VERSION = 29;
 let state = { babyName:'Baby', birthDate:null, feedingMode:'breast', logs:[], feedSession:null, sleepSession:null };
 let feedType = 'breast';
 let nappyType = 'pee';
@@ -1192,7 +1200,23 @@ function updateTodayStats() {
   setStatPill(document.getElementById('statSleep'),!!state.sleepSession,sleepLogs.length+1,slpSec>0?formatDur(slpSec):'–');
 }
 
-function updateNowPanel() { updateStatusCard(); updateActionCards(); updateTodayStats(); drawTimeline(); updateNextLikely(); }
+function updateNowPanel() { updateStatusCard(); updateActionCards(); updateTodayStats(); drawTimeline(); updateNextLikely(); updateFeedBreakdown(); }
+function updateFeedBreakdown() {
+  const card=document.getElementById('feedBreakdownCard');
+  const since=Date.now()-24*3600000;
+  const feeds=state.logs.filter(l=>l.type==='feed' && l.startTime>=since);
+  const breast=feeds.filter(f=>f.feedType==='breast').length;
+  const formula=feeds.filter(f=>f.feedType==='formula');
+  if(!formula.length){ card.style.display='none'; return; }
+  const formulaMl=formula.reduce((a,f)=>a+(f.volume||0),0);
+  const parts=[];
+  parts.push(breast
+    ? `🤱 ${breast} breast · 🍼 ${formula.length} formula`
+    : `🍼 ${formula.length} formula feed${formula.length===1?'':'s'}`);
+  if(formulaMl>0) parts.push(`${formulaMl}ml total`);
+  document.getElementById('fbText').textContent=parts.join(' · ');
+  card.style.display='';
+}
 function updateNextLikely() {
   const card=document.getElementById('nextLikelyCard');
   const ageDays=getAgeInDays(), now=Date.now();
