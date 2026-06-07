@@ -135,6 +135,17 @@ body {
 .st-edit-ok { background: var(--sleep); color: #fff; }
 .st-edit-cancel { background: var(--card); color: var(--text-soft); }
 
+.next-card {
+  margin: 0 14px 10px; border-radius: var(--r); padding: 12px 18px;
+  border: 1px solid var(--border); background: var(--card);
+  display: flex; align-items: center; gap: 14px;
+}
+.next-card .nx-icon { font-size: 24px; line-height: 1; }
+.next-card .nx-body { flex: 1; min-width: 0; }
+.next-card .nx-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); }
+.next-card .nx-action { font-family: 'Nunito', sans-serif; font-size: 15px; font-weight: 800; margin-top: 1px; }
+.next-card .nx-time { text-align: right; font-size: 12px; font-weight: 700; color: var(--text-soft); white-space: nowrap; }
+
 .tl-wrap {
   margin: 0 14px 10px;
   border-radius: var(--r);
@@ -594,6 +605,15 @@ select.field-inp { cursor: pointer; }
       </div>
     </div>
 
+    <div class="next-card" id="nextLikelyCard" style="display:none">
+      <div class="nx-icon" id="nlIcon">🤱</div>
+      <div class="nx-body">
+        <div class="nx-label">Likely next</div>
+        <div class="nx-action" id="nlAction">Feed</div>
+      </div>
+      <div class="nx-time" id="nlTime">–</div>
+    </div>
+
     <div class="tl-wrap">
       <div class="tl-header">
         <div class="tl-title">Activity Timeline</div>
@@ -892,7 +912,7 @@ select.field-inp { cursor: pointer; }
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script>
-const APP_VERSION = 27;
+const APP_VERSION = 28;
 let state = { babyName:'Baby', birthDate:null, feedingMode:'breast', logs:[], feedSession:null, sleepSession:null };
 let feedType = 'breast';
 let nappyType = 'pee';
@@ -1172,7 +1192,28 @@ function updateTodayStats() {
   setStatPill(document.getElementById('statSleep'),!!state.sleepSession,sleepLogs.length+1,slpSec>0?formatDur(slpSec):'–');
 }
 
-function updateNowPanel() { updateStatusCard(); updateActionCards(); updateTodayStats(); drawTimeline(); }
+function updateNowPanel() { updateStatusCard(); updateActionCards(); updateTodayStats(); drawTimeline(); updateNextLikely(); }
+function updateNextLikely() {
+  const card=document.getElementById('nextLikelyCard');
+  const ageDays=getAgeInDays(), now=Date.now();
+  const types=[{type:'feed',emoji:'🤱',label:'Feed'},{type:'sleep',emoji:'😴',label:'Sleep'},{type:'nappy',emoji:'🩲',label:'Nappy change'}];
+  const candidates=types
+    .map(({type,emoji,label})=>{ const t=computeTrend(type,ageDays,now); return{emoji,label,next:t.next,count:t.count}; })
+    .filter(c=>c.next!=null && c.count>=TREND_MIN_COUNT)
+    .sort((a,b)=>a.next-b.next);
+  if(!candidates.length){ card.style.display='none'; return; }
+  const best=candidates[0];
+  const diff=best.next-now, abs=Math.abs(diff);
+  const h=Math.floor(abs/3600000), m=Math.floor((abs%3600000)/60000);
+  const rel=h>0?`${h}h ${m}m`:`${m}m`;
+  const when=diff<0?`<span style="color:#FF6B6B">${rel} overdue</span>`
+    :diff<30*60000?`<span style="color:var(--nappy)">in ${rel}</span>`
+    :`<span style="color:#4CAF50">in ${rel}</span>`;
+  document.getElementById('nlIcon').textContent=best.emoji;
+  document.getElementById('nlAction').textContent=best.label;
+  document.getElementById('nlTime').innerHTML=`${fmtTime(best.next)} · ${when}`;
+  card.style.display='';
+}
 
 function toggleFeed() {
   if (state.feedSession){stopFeed();}else{startFeed();}
@@ -1555,23 +1596,23 @@ const TREND_MIN_COUNT = 5, TREND_MIN_DAYS = 3;
 function trendDataInfo(label, count) {
   alert(`Not enough data yet for a reliable ${label.toLowerCase()} trend.\n\nWe recommend logging at least ${TREND_MIN_COUNT} ${label.toLowerCase()} over ${TREND_MIN_DAYS}+ days before relying on a personalised prediction.\n\nYou've logged ${count} so far — keep going and this will fill in automatically.`);
 }
+function computeTrend(type,ageDays,now){
+  const logs=state.logs.filter(l=>l.type===type).slice().sort((a,b)=>a.startTime-b.startTime);
+  const typical=getTypicalMs(type,ageDays);
+  if(!logs.length)return{avgMs:null,blended:typical,last:null,next:null,count:0,typical};
+  const intervals=[];
+  for(let i=1;i<logs.length;i++)intervals.push(logs[i].startTime-logs[i-1].startTime);
+  const actualAvg=intervals.length?intervals.reduce((a,b)=>a+b,0)/intervals.length:null;
+  let blended=actualAvg;
+  if(typical!=null&&actualAvg!=null){const w=Math.min(intervals.length/8,1);blended=w*actualAvg+(1-w)*typical;}
+  else if(actualAvg==null)blended=typical;
+  const last=logs[logs.length-1];
+  return{avgMs:actualAvg,blended,last,next:blended!=null?last.startTime+blended:null,count:logs.length,typical};
+}
+function fmtMs(ms){if(ms==null)return'–';const h=Math.floor(ms/3600000),m=Math.floor((ms%3600000)/60000);return h>0?`${h}h ${m}m`:`${m}m`;}
 function refreshTrends() {
   const panel=document.getElementById('trendsContent'), ageDays=getAgeInDays(), now=Date.now();
   const types=[{type:'feed',emoji:'🤱',label:'Feeds',color:'var(--feed)'},{type:'nappy',emoji:'🩲',label:'Nappies',color:'var(--nappy)'},{type:'sleep',emoji:'😴',label:'Sleeps',color:'var(--sleep)'}];
-  function computeTrend(type){
-    const logs=state.logs.filter(l=>l.type===type).slice().sort((a,b)=>a.startTime-b.startTime);
-    const typical=getTypicalMs(type,ageDays);
-    if(!logs.length)return{avgMs:null,blended:typical,last:null,next:null,count:0,typical};
-    const intervals=[];
-    for(let i=1;i<logs.length;i++)intervals.push(logs[i].startTime-logs[i-1].startTime);
-    const actualAvg=intervals.length?intervals.reduce((a,b)=>a+b,0)/intervals.length:null;
-    let blended=actualAvg;
-    if(typical!=null&&actualAvg!=null){const w=Math.min(intervals.length/8,1);blended=w*actualAvg+(1-w)*typical;}
-    else if(actualAvg==null)blended=typical;
-    const last=logs[logs.length-1];
-    return{avgMs:actualAvg,blended,last,next:blended!=null?last.startTime+blended:null,count:logs.length,typical};
-  }
-  function fmtMs(ms){if(ms==null)return'–';const h=Math.floor(ms/3600000),m=Math.floor((ms%3600000)/60000);return h>0?`${h}h ${m}m`:`${m}m`;}
   function fmtNext(ts){
     if(ts==null)return'<span style="color:var(--text-muted)">No data yet</span>';
     const diff=ts-now,abs=Math.abs(diff),h=Math.floor(abs/3600000),m=Math.floor((abs%3600000)/60000);
@@ -1585,7 +1626,7 @@ function refreshTrends() {
     :`<div style="color:var(--text-muted);font-size:12px;margin-bottom:6px">Add date of birth in More for age-adjusted predictions.</div>`;
   const disclaimer=`<div style="background:var(--card2);border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:11px;line-height:1.5;color:var(--text-soft)">⚠️ <strong style="color:var(--text)">These trends are only a guide</strong> — every baby is different. Always seek advice from a health professional about your baby's feeding, sleep and development.</div>`;
   panel.innerHTML=ageNote+disclaimer+types.map(({type,emoji,label,color})=>{
-    const t=computeTrend(type);
+    const t=computeTrend(type,ageDays,now);
     const enough=t.count>=TREND_MIN_COUNT;
     const bc=!t.last?'var(--border)':(t.next&&t.next<now)?'#FF6B6B':(t.next&&t.next-now<30*60000)?'var(--nappy)':'#4CAF50';
     const warnBtn=`<span class="trend-warn" onclick="trendDataInfo('${label}',${t.count})" title="Tap to find out how much data is needed">⚠️ Not enough data yet</span>`;
