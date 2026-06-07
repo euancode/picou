@@ -256,8 +256,9 @@ body {
 }
 
 .stats-row {
-  display: flex; gap: 8px; margin: 0 14px 76px;
+  display: flex; gap: 8px; margin: 0 14px 10px;
 }
+#panel-now { padding-bottom: 76px; }
 .stat-pill {
   flex: 1; background: var(--card); border: 1px solid var(--border);
   border-radius: var(--r-sm); padding: 10px 6px; text-align: center;
@@ -920,7 +921,7 @@ select.field-inp { cursor: pointer; }
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script>
-const APP_VERSION = 29;
+const APP_VERSION = 30;
 let state = { babyName:'Baby', birthDate:null, feedingMode:'breast', logs:[], feedSession:null, sleepSession:null };
 let feedType = 'breast';
 let nappyType = 'pee';
