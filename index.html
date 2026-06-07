@@ -505,6 +505,32 @@ select.field-inp { cursor: pointer; }
   font-family: 'Nunito Sans', sans-serif; font-size: 13px; outline: none;
   max-width: 160px;
 }
+.adv-toggle {
+  width: 100%; padding: 13px 14px; border: 1px solid var(--border);
+  border-radius: var(--r-sm); background: var(--card); color: var(--text-soft);
+  cursor: pointer; display: flex; align-items: center; justify-content: space-between;
+  font-family: 'Nunito', sans-serif; font-size: 13px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 0.5px; margin: 18px 0 0;
+}
+.adv-toggle .chev { transition: transform 0.2s; font-size: 11px; }
+.adv-toggle.open .chev { transform: rotate(180deg); }
+.adv-body { display: none; margin-top: 10px; }
+.adv-body.open { display: block; }
+.about-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r-sm); padding: 16px; margin-bottom: 8px;
+  font-size: 13px; color: var(--text-soft); line-height: 1.6;
+}
+.about-card b { color: var(--text); }
+.tip-btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; padding: 14px; border: 1px solid rgba(255,193,7,0.35);
+  border-radius: var(--r-sm); background: rgba(255,193,7,0.1); color: #FFC107;
+  cursor: pointer; text-decoration: none;
+  font-family: 'Nunito', sans-serif; font-size: 15px; font-weight: 800;
+  margin-bottom: 8px; transition: background 0.15s;
+}
+.tip-btn:active { background: rgba(255,193,7,0.18); }
 .toast {
   position: fixed; bottom: 90px; left: 50%;
   transform: translateX(-50%) translateY(20px);
@@ -659,7 +685,7 @@ select.field-inp { cursor: pointer; }
   <!-- MORE PANEL -->
   <div class="panel" id="panel-more">
     <div style="padding:14px">
-      <div class="section-title" style="margin-bottom:14px">⚙️ Settings &amp; Data</div>
+      <div class="section-title" style="margin-bottom:14px">⚙️ Settings</div>
       <div class="info-row">
         <label>Date of birth</label>
         <input type="date" class="info-inp" id="birthDateInput" onchange="saveBirthDate()">
@@ -672,15 +698,29 @@ select.field-inp { cursor: pointer; }
           <option value="combo">Combination fed</option>
         </select>
       </div>
-      <button class="data-btn" onclick="openTextImportModal()"><span class="d-icon">📋</span> Paste Text Import</button>
-      <button class="data-btn" onclick="openSyncModal()"><span class="d-icon">🔗</span> Quick Sync (QR)</button>
-      <button class="data-btn" onclick="checkForUpdates()"><span class="d-icon">🔄</span> Check for Updates</button>
-      <button class="data-btn" onclick="emailLog()"><span class="d-icon">📧</span> Email Log</button>
-      <button class="data-btn" onclick="exportData()"><span class="d-icon">⬆️</span> Export Data (JSON)</button>
-      <button class="data-btn" onclick="document.getElementById('fileInput').click()"><span class="d-icon">⬇️</span> Import Data (JSON)</button>
-      <input type="file" id="fileInput" accept=".json" onchange="importData(event)">
-      <button class="data-btn danger" onclick="clearAllData()"><span class="d-icon">🗑️</span> Clear All Data</button>
-      <div style="text-align:center;margin-top:16px;font-size:11px;color:#fff;font-weight:600">Version <span id="appVersionDisplay"></span></div>
+
+      <div class="section-title" style="margin:20px 0 14px">🔗 Share &amp; Sync</div>
+      <div style="font-size:12px;color:var(--text-soft);margin-bottom:12px;line-height:1.5">Share entries between phones — scan a QR code in person, or send a sync code through any messaging app. No internet, accounts or setup needed.</div>
+      <button class="data-btn" onclick="openSyncModal()"><span class="d-icon">🔗</span> Quick Sync (QR &amp; Message)</button>
+
+      <div class="section-title" style="margin:20px 0 14px">💜 About</div>
+      <div class="about-card">
+        <b>Picou</b> — a simple, private baby tracker. Your data stays on your phone (or syncs directly between phones, with no cloud account needed).<br>
+        Version <span id="appVersionDisplay"></span>
+      </div>
+      <a class="tip-btn" href="https://buymeacoffee.com/picou" target="_blank" rel="noopener"><span>☕</span> Buy me a coffee</a>
+      <button class="data-btn" onclick="shareApp()"><span class="d-icon">📣</span> Tell other parents about Picou</button>
+
+      <button class="adv-toggle" id="advToggleBtn" onclick="toggleAdvanced()">Advanced <span class="chev">▾</span></button>
+      <div class="adv-body" id="advBody">
+        <button class="data-btn" style="margin-top:10px" onclick="openTextImportModal()"><span class="d-icon">📋</span> Paste Text Import</button>
+        <button class="data-btn" onclick="checkForUpdates()"><span class="d-icon">🔄</span> Check for Updates</button>
+        <button class="data-btn" onclick="emailLog()"><span class="d-icon">📧</span> Email Log</button>
+        <button class="data-btn" onclick="exportData()"><span class="d-icon">⬆️</span> Export Data (JSON)</button>
+        <button class="data-btn" onclick="document.getElementById('fileInput').click()"><span class="d-icon">⬇️</span> Import Data (JSON)</button>
+        <input type="file" id="fileInput" accept=".json" onchange="importData(event)">
+        <button class="data-btn danger" onclick="clearAllData()"><span class="d-icon">🗑️</span> Clear All Data</button>
+      </div>
     </div>
   </div>
 </div>
@@ -852,7 +892,7 @@ select.field-inp { cursor: pointer; }
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script>
-const APP_VERSION = 26;
+const APP_VERSION = 27;
 let state = { babyName:'Baby', birthDate:null, feedingMode:'breast', logs:[], feedSession:null, sleepSession:null };
 let feedType = 'breast';
 let nappyType = 'pee';
@@ -1778,6 +1818,21 @@ function importTextEntries() {
   showToast(`Added ${fresh.length} entr${fresh.length===1?'y':'ies'} ✅`);
 }
 
+function toggleAdvanced() {
+  document.getElementById('advToggleBtn').classList.toggle('open');
+  document.getElementById('advBody').classList.toggle('open');
+}
+function shareApp() {
+  const text=`I've been using Picou to track ${state.babyName}'s feeds, sleep and nappies — it's simple, private and works offline. Worth a look if you're after something similar:`;
+  const url=location.href;
+  if (navigator.share) {
+    navigator.share({ title:'Picou — baby tracker', text, url }).catch(()=>{});
+  } else if (navigator.clipboard) {
+    navigator.clipboard.writeText(`${text} ${url}`).then(()=>showToast('Link copied — paste it into a message ✅')).catch(()=>{});
+  } else {
+    window.location.href='mailto:?subject='+encodeURIComponent('Picou — baby tracker')+'&body='+encodeURIComponent(`${text}\n\n${url}`);
+  }
+}
 function emailLog() {
   const now = Date.now();
   const since = now - 48*3600000;
@@ -1848,6 +1903,7 @@ let syncNewEntries = [];
 let syncMergeResult = null;
 let syncVerifyOk = false;
 let syncResultDetail = '';
+let syncCurrentCode = null;
 
 function openSyncModal() {
   syncStep='intro'; syncConflicts=[]; syncNewEntries=[]; syncMergeResult=null;
@@ -2014,6 +2070,23 @@ function syncStopCamera() {
   if(syncStream){ syncStream.getTracks().forEach(t=>t.stop()); syncStream=null; }
   syncScanCanvas=null;
 }
+function syncShareCode() {
+  if(!syncCurrentCode) return;
+  const text=`${state.babyName}'s Picou sync code (last 24h of entries):\n\n${syncCurrentCode}\n\nOpen Picou → More → Quick Sync, then paste this code in to import it.`;
+  if (navigator.share) {
+    navigator.share({ title:'Picou sync code', text }).catch(()=>{});
+  } else if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(()=>showToast('Code copied — paste it into a message ✅')).catch(()=>{});
+  } else {
+    window.location.href='mailto:?subject='+encodeURIComponent(state.babyName+' Picou sync code')+'&body='+encodeURIComponent(text);
+  }
+}
+function syncApplyPasted() {
+  const area=document.getElementById('syncPasteArea');
+  const text=(area&&area.value||'').trim();
+  if(!text){ showToast('Paste a code first'); return; }
+  syncOnScanned(text);
+}
 function syncOnScanned(text) {
   syncStopCamera();
   if(syncMode==='data'){
@@ -2038,10 +2111,11 @@ function renderSyncModal() {
   syncStopCamera();
   if(syncStep==='intro'){
     body.innerHTML=`
-      <div style="font-size:13px;color:var(--text-soft);margin-bottom:16px;line-height:1.5">Quick Sync shares your last 24 hours of entries with another phone using QR codes — no internet, accounts or setup needed. Open this on both phones and follow along together.</div>
+      <div style="font-size:13px;color:var(--text-soft);margin-bottom:16px;line-height:1.5">Quick Sync shares your last 24 hours of entries with another phone — no internet, accounts or setup needed. Either scan QR codes together in person, or send a sync code through any messaging app for someone further away.</div>
       <button class="retro-save-btn" onclick="syncGoto('show')">Start — Show My Code</button>`;
   } else if(syncStep==='show'){
     const data=syncEncodeData();
+    syncCurrentCode=data;
     if(!data){
       body.innerHTML=`<div style="text-align:center;padding:30px 0;color:var(--text-soft);font-size:13px">No entries in the last 24 hours to share.</div>
         <button class="retro-save-btn" onclick="syncGoto('scan')">Next: Scan their code →</button>`;
@@ -2050,14 +2124,21 @@ function renderSyncModal() {
         <div style="text-align:center">
           <img class="sync-qr-img" src="${syncQR(data)}" alt="Sync QR code">
           <div style="font-size:12px;color:var(--text-soft);margin-top:10px">Hold this up for the other phone to scan</div>
+          <div style="font-size:11px;color:var(--text-muted);margin:14px 0 8px">— or, if they're not with you —</div>
+          <button class="data-btn" onclick="syncShareCode()"><span class="d-icon">📤</span> Send code via message</button>
         </div>
-        <button class="retro-save-btn" style="margin-top:20px" onclick="syncGoto('scan')">Next: Scan their code →</button>`;
+        <button class="retro-save-btn" style="margin-top:14px" onclick="syncGoto('scan')">Next: Scan or paste their code →</button>`;
     }
   } else if(syncStep==='scan'){
     body.innerHTML=`
       <div style="font-size:12px;color:var(--text-soft);margin-bottom:10px;text-align:center">Point your camera at the other phone's QR code</div>
       <video id="syncVideo" class="sync-video" playsinline muted autoplay></video>
-      <div id="syncScanHint" style="font-size:11px;color:var(--text-muted);margin-top:8px;text-align:center">Scanning…</div>`;
+      <div id="syncScanHint" style="font-size:11px;color:var(--text-muted);margin-top:8px;text-align:center">Scanning…</div>
+      <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;text-align:center">Got a code via message instead? Paste it below</div>
+        <textarea class="notes-inp" id="syncPasteArea" rows="3" placeholder="PCSY1|..."></textarea>
+        <button class="retro-save-btn" style="margin-top:8px" onclick="syncApplyPasted()">Apply pasted code</button>
+      </div>`;
     syncMode='data';
     syncStartCamera(syncOnScanned);
   } else if(syncStep==='conflicts'){
