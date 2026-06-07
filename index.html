@@ -431,6 +431,12 @@ select.field-inp { cursor: pointer; }
   color: var(--text-soft); cursor: pointer; white-space: nowrap; transition: all 0.15s;
 }
 .ftab.active { background: var(--card2); color: var(--text); border-color: rgba(255,255,255,0.2); }
+.ftab-count {
+  display: inline-block; min-width: 17px; padding: 1px 5px; margin-left: 5px;
+  border-radius: 50px; background: rgba(255,255,255,0.12);
+  font-size: 10px; font-weight: 800; color: var(--text-soft);
+}
+.ftab.active .ftab-count { background: rgba(255,255,255,0.18); color: var(--text); }
 .history-item {
   background: var(--card); border-radius: var(--r-sm);
   padding: 13px 14px; margin-bottom: 8px;
@@ -712,10 +718,10 @@ select.field-inp { cursor: pointer; }
       </div>
       <button class="add-past-btn" onclick="openRetroModal('feed')">+ Add past entry</button>
       <div class="filter-tabs">
-        <button class="ftab active" onclick="setFilter('all',this)">All</button>
-        <button class="ftab" onclick="setFilter('feed',this)">🤱 Feeds</button>
-        <button class="ftab" onclick="setFilter('nappy',this)">🩲 Nappies</button>
-        <button class="ftab" onclick="setFilter('sleep',this)">😴 Sleeps</button>
+        <button class="ftab active" onclick="setFilter('all',this)">All <span class="ftab-count" id="ftabCount-all">0</span></button>
+        <button class="ftab" onclick="setFilter('feed',this)">🤱 Feeds <span class="ftab-count" id="ftabCount-feed">0</span></button>
+        <button class="ftab" onclick="setFilter('nappy',this)">🩲 Nappies <span class="ftab-count" id="ftabCount-nappy">0</span></button>
+        <button class="ftab" onclick="setFilter('sleep',this)">😴 Sleeps <span class="ftab-count" id="ftabCount-sleep">0</span></button>
       </div>
       <div id="historyList"></div>
     </div>
@@ -957,7 +963,7 @@ select.field-inp { cursor: pointer; }
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script>
-const APP_VERSION = 38;
+const APP_VERSION = 39;
 let state = { babyName:'Baby', birthDate:null, feedingMode:'breast', logs:[], feedSession:null, sleepSession:null };
 let feedType = 'breast';
 
@@ -1574,7 +1580,16 @@ function toggleSort() {
   document.querySelector('.sort-btn').textContent=sortAsc?'↑ Oldest':'↓ Newest';
   refreshHistory();
 }
+function refreshFilterCounts() {
+  const counts={all:state.logs.length,feed:0,nappy:0,sleep:0};
+  state.logs.forEach(l=>{if(counts[l.type]!=null)counts[l.type]++;});
+  Object.keys(counts).forEach(k=>{
+    const el=document.getElementById('ftabCount-'+k);
+    if(el)el.textContent=counts[k];
+  });
+}
 function refreshHistory() {
+  refreshFilterCounts();
   const list=document.getElementById('historyList');
   let filtered=historyFilter==='all'?state.logs:state.logs.filter(l=>l.type===historyFilter);
   if (!filtered.length){list.innerHTML='<div class="empty-state"><span class="empty-emoji">📭</span>No entries yet</div>';return;}
