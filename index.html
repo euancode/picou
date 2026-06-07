@@ -606,10 +606,10 @@ select.field-inp { cursor: pointer; }
       </div>
     </div>
 
-    <div class="next-card" id="nextLikelyCard" style="display:none">
+    <div class="next-card" id="nextLikelyCard" style="display:none;cursor:pointer" onclick="explainNextLikely()">
       <div class="nx-icon" id="nlIcon">🤱</div>
       <div class="nx-body">
-        <div class="nx-label">Likely next</div>
+        <div class="nx-label">Likely next <span style="text-transform:none;font-weight:700;opacity:0.6">ⓘ why?</span></div>
         <div class="nx-action" id="nlAction">Feed</div>
       </div>
       <div class="nx-time" id="nlTime">–</div>
@@ -921,7 +921,7 @@ select.field-inp { cursor: pointer; }
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script>
-const APP_VERSION = 30;
+const APP_VERSION = 31;
 let state = { babyName:'Baby', birthDate:null, feedingMode:'breast', logs:[], feedSession:null, sleepSession:null };
 let feedType = 'breast';
 let nappyType = 'pee';
@@ -1218,17 +1218,19 @@ function updateFeedBreakdown() {
   document.getElementById('fbText').textContent=parts.join(' · ');
   card.style.display='';
 }
+let nextLikelyDetail = null;
 function updateNextLikely() {
   const card=document.getElementById('nextLikelyCard');
   const ageDays=getAgeInDays(), now=Date.now();
   const types=[{type:'feed',emoji:'🤱',label:'Feed'},{type:'sleep',emoji:'😴',label:'Sleep'},{type:'nappy',emoji:'🩲',label:'Nappy change'}];
   const candidates=types
-    .map(({type,emoji,label})=>{ const t=computeTrend(type,ageDays,now); return{emoji,label,next:t.next,count:t.count}; })
-    .filter(c=>c.next!=null && c.count>=TREND_MIN_COUNT)
-    .sort((a,b)=>a.next-b.next);
-  if(!candidates.length){ card.style.display='none'; return; }
+    .map(({type,emoji,label})=>{ const t=computeTrend(type,ageDays,now); return{type,emoji,label,t}; })
+    .filter(c=>c.t.next!=null && c.t.count>=TREND_MIN_COUNT)
+    .sort((a,b)=>a.t.next-b.t.next);
+  if(!candidates.length){ card.style.display='none'; nextLikelyDetail=null; return; }
   const best=candidates[0];
-  const diff=best.next-now, abs=Math.abs(diff);
+  nextLikelyDetail={...best, ageDays};
+  const diff=best.t.next-now, abs=Math.abs(diff);
   const h=Math.floor(abs/3600000), m=Math.floor((abs%3600000)/60000);
   const rel=h>0?`${h}h ${m}m`:`${m}m`;
   const when=diff<0?`<span style="color:#FF6B6B">${rel} overdue</span>`
@@ -1236,8 +1238,26 @@ function updateNextLikely() {
     :`<span style="color:#4CAF50">in ${rel}</span>`;
   document.getElementById('nlIcon').textContent=best.emoji;
   document.getElementById('nlAction').textContent=best.label;
-  document.getElementById('nlTime').innerHTML=`${fmtTime(best.next)} · ${when}`;
+  document.getElementById('nlTime').innerHTML=`${fmtTime(best.t.next)} · ${when}`;
   card.style.display='';
+}
+function explainNextLikely() {
+  if(!nextLikelyDetail) return;
+  const {emoji,label,t,ageDays}=nextLikelyDetail;
+  const lines=[
+    `${emoji} ${label} — predicted around ${fmtTime(t.next)}`,
+    '',
+    `Picou blends your own recent pattern with typical ranges for this age:`,
+    '',
+    `• Your average gap: ${fmtMs(t.avgMs)} (from your last ${t.count} logged)`,
+  ];
+  if(t.typical!=null) lines.push(`• Age-typical gap${ageDays!=null?` for a ${formatAge(ageDays)}`:''}: ${fmtMs(t.typical)}`);
+  lines.push(`• Blended estimate: ${fmtMs(t.blended)}`);
+  lines.push('');
+  lines.push(`Last ${label.toLowerCase()} started at ${fmtTime(t.last.startTime)} — add the blended gap and you get the predicted time above.`);
+  lines.push('');
+  lines.push(`This is only a guide — every baby is different!`);
+  alert(lines.join('\n'));
 }
 
 function toggleFeed() {
