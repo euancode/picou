@@ -256,6 +256,8 @@ body {
 .sp-num.sleep { color: var(--sleep); }
 .sp-num.nappy { color: var(--nappy); }
 .sp-lbl { font-size: 9px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 3px; }
+@keyframes spFlash { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+.sp-flash { animation: spFlash 1.1s ease-in-out infinite; }
 
 .bnav {
   position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
@@ -615,7 +617,7 @@ select.field-inp { cursor: pointer; }
     <div class="stats-row">
       <div class="stat-pill">
         <div class="sp-num feed" id="statFeeds">0</div>
-        <div class="sp-lbl">Feeds today</div>
+        <div class="sp-lbl" data-normal="Feeds today">Feeds today</div>
       </div>
       <div class="stat-pill">
         <div class="sp-num nappy" id="statNappies">0</div>
@@ -623,7 +625,7 @@ select.field-inp { cursor: pointer; }
       </div>
       <div class="stat-pill">
         <div class="sp-num sleep" id="statSleep">–</div>
-        <div class="sp-lbl">Sleep today</div>
+        <div class="sp-lbl" data-normal="Sleep today">Sleep today</div>
       </div>
     </div>
   </div>
@@ -850,7 +852,7 @@ select.field-inp { cursor: pointer; }
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script>
-const APP_VERSION = 25;
+const APP_VERSION = 26;
 let state = { babyName:'Baby', birthDate:null, feedingMode:'breast', logs:[], feedSession:null, sleepSession:null };
 let feedType = 'breast';
 let nappyType = 'pee';
@@ -1098,14 +1100,36 @@ function updateActionCards() {
   }
 }
 
+function ordinal(n) {
+  const v=n%100;
+  if (v>=11&&v<=13) return n+'th';
+  switch(n%10){ case 1: return n+'st'; case 2: return n+'nd'; case 3: return n+'rd'; default: return n+'th'; }
+}
+
+function setStatPill(numEl,inProgress,ordinalCount,normalText) {
+  const lblEl=numEl.parentElement.querySelector('.sp-lbl');
+  if (inProgress) {
+    numEl.textContent=ordinal(ordinalCount);
+    lblEl.textContent='in progress';
+  } else {
+    numEl.textContent=normalText;
+    lblEl.textContent=lblEl.dataset.normal;
+  }
+  numEl.classList.toggle('sp-flash',inProgress);
+  lblEl.classList.toggle('sp-flash',inProgress);
+}
+
 function updateTodayStats() {
   const today=new Date(); today.setHours(0,0,0,0);
   const ts=today.getTime();
   const tl=state.logs.filter(l=>l.startTime>=ts);
-  document.getElementById('statFeeds').textContent=tl.filter(l=>l.type==='feed').length;
+  const feedCount=tl.filter(l=>l.type==='feed').length;
+  const sleepLogs=tl.filter(l=>l.type==='sleep');
+  const slpSec=sleepLogs.reduce((a,l)=>a+(l.duration||0),0);
+
+  setStatPill(document.getElementById('statFeeds'),!!state.feedSession,feedCount+1,feedCount);
   document.getElementById('statNappies').textContent=tl.filter(l=>l.type==='nappy').length;
-  const slpSec=tl.filter(l=>l.type==='sleep').reduce((a,l)=>a+(l.duration||0),0);
-  document.getElementById('statSleep').textContent=slpSec>0?formatDur(slpSec):'–';
+  setStatPill(document.getElementById('statSleep'),!!state.sleepSession,sleepLogs.length+1,slpSec>0?formatDur(slpSec):'–');
 }
 
 function updateNowPanel() { updateStatusCard(); updateActionCards(); updateTodayStats(); drawTimeline(); }
