@@ -171,15 +171,6 @@ body {
   border-radius: 8px;
   display: block;
 }
-.tl-pulse-dot {
-  position: absolute;
-  top: 50%; right: 5px;
-  width: 7px; height: 7px;
-  margin-top: -3.5px;
-  border-radius: 50%;
-  pointer-events: none;
-  animation: blink 1.5s infinite;
-}
 .tl-ticks {
   position: relative;
   height: 14px;
@@ -254,7 +245,7 @@ body {
 }
 
 .stats-row {
-  display: flex; gap: 8px; margin: 0 14px 10px;
+  display: flex; gap: 8px; margin: 0 14px 76px;
 }
 .stat-pill {
   flex: 1; background: var(--card); border: 1px solid var(--border);
@@ -283,6 +274,24 @@ body {
 .bnav-lbl { font-family: 'Nunito', sans-serif; font-size: 10px; font-weight: 700; color: var(--text-muted); }
 .bnav-btn.active .bnav-icon { transform: scale(1.15); }
 .bnav-btn.active .bnav-lbl { color: var(--text); }
+
+.fab-add {
+  position: fixed;
+  right: 18px; bottom: 92px;
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  border: none;
+  background: linear-gradient(135deg, var(--feed), var(--sleep));
+  color: #fff;
+  font-family: 'Nunito', sans-serif;
+  font-size: 28px; font-weight: 800; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+  z-index: 120;
+  transition: transform 0.15s, opacity 0.1s;
+}
+.fab-add:active { transform: scale(0.92); opacity: 0.9; }
 
 .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 150; display: none; }
 .overlay.show { display: block; }
@@ -386,6 +395,7 @@ select.field-inp { cursor: pointer; }
   cursor: pointer; margin-top: 6px; transition: transform 0.1s, opacity 0.1s;
 }
 .retro-save-btn:active { transform: scale(0.97); opacity: 0.9; }
+.retro-save-btn:disabled { opacity: 0.4; cursor: default; transform: none; }
 
 .section-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .section-title { font-family: 'Nunito', sans-serif; font-size: 17px; font-weight: 800; }
@@ -521,6 +531,7 @@ select.field-inp { cursor: pointer; }
 
   <!-- NOW PANEL -->
   <div class="panel active" id="panel-now">
+    <button class="fab-add" id="quickAddFab" onclick="openQuickAddModal()" aria-label="Quick add entry">+</button>
     <div class="hdr">
       <div>
         <div class="baby-name" id="babyNameDisplay" onclick="editName()">Baby</div>
@@ -567,7 +578,6 @@ select.field-inp { cursor: pointer; }
       <div class="tl-canvas-wrap">
         <canvas id="timelineCanvas" height="44"></canvas>
         <span id="tlNowPin">now</span>
-        <span id="tlPulseDot" class="tl-pulse-dot"></span>
       </div>
       <div class="tl-ticks" id="tlTicks"></div>
       <div class="tl-legend">
@@ -660,6 +670,7 @@ select.field-inp { cursor: pointer; }
           <option value="combo">Combination fed</option>
         </select>
       </div>
+      <button class="data-btn" onclick="openTextImportModal()"><span class="d-icon">📋</span> Paste Text Import</button>
       <button class="data-btn" onclick="openSyncModal()"><span class="d-icon">🔗</span> Quick Sync (QR)</button>
       <button class="data-btn" onclick="checkForUpdates()"><span class="d-icon">🔄</span> Check for Updates</button>
       <button class="data-btn" onclick="emailLog()"><span class="d-icon">📧</span> Email Log</button>
@@ -769,6 +780,51 @@ select.field-inp { cursor: pointer; }
   </div>
 </div>
 
+<div class="modal-overlay" id="quickAddModal" onclick="handleQuickAddOverlayClick(event)">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <span class="modal-title">⚡ Quick Add</span>
+      <button class="modal-close" onclick="closeQuickAddModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:var(--text-soft);margin-bottom:10px;line-height:1.6">
+        Type what happened in plain English and we'll work out the details — e.g.
+        <em>"slept from 1 to 2"</em>, <em>"fed 20 mins at 3pm"</em>, <em>"wet nappy at 9:45"</em>,
+        <em>"napped for 45 mins"</em>, <em>"formula 120ml at 7am"</em>.
+      </div>
+      <textarea class="notes-inp" id="quickAddInput" rows="3" placeholder="e.g. slept from 1-2" oninput="previewQuickAdd()"></textarea>
+      <div id="quickAddPreview" style="font-size:13px;min-height:20px;margin:8px 0 14px"></div>
+      <button class="retro-save-btn" id="quickAddSaveBtn" onclick="saveQuickAdd()" disabled>Add Entry</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="textImportModal" onclick="handleTextImportOverlayClick(event)">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <span class="modal-title">📋 Paste Text Import</span>
+      <button class="modal-close" onclick="closeTextImportModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:var(--card);border-radius:var(--r-sm);padding:12px 14px;margin-bottom:14px;font-size:12px;font-weight:600;color:var(--text-soft);line-height:1.8">
+        <strong style="color:var(--text)">Format:</strong> <code style="background:var(--border);padding:1px 5px;border-radius:4px">DATE HH:MM TYPE [details]</code><br>
+        <strong style="color:var(--text)">Date:</strong> YYYY-MM-DD <em>or</em> DD/MM/YYYY &nbsp;·&nbsp; <strong style="color:var(--text)">Time:</strong> 24-hour<br>
+        <strong style="color:var(--feed)">feed</strong> [breast|formula] [mins] [vol]ml &nbsp;·&nbsp;
+        <strong style="color:var(--nappy)">nappy</strong> [pee|poo|both] [colour]<br>
+        <strong style="color:var(--sleep)">sleep</strong> [mins] &nbsp;·&nbsp; Lines starting with <code style="background:var(--border);padding:1px 5px;border-radius:4px">#</code> are ignored
+      </div>
+      <textarea class="notes-inp" id="textImportArea" rows="8"
+        style="font-family:monospace;font-size:13px"
+        placeholder="2026-06-07 14:00 feed breast 15&#10;2026-06-07 13:15 nappy poo brown&#10;2026-06-07 11:00 sleep 90&#10;2026-06-07 09:30 feed formula 20 120ml&#10;2026-06-07 08:00 nappy pee"
+        oninput="previewTextImport()"></textarea>
+      <div id="textImportPreview" style="font-size:13px;font-weight:700;min-height:18px;margin:8px 0 14px"></div>
+      <button class="retro-save-btn" onclick="importTextEntries()">✅ Import Entries</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="scheduleModal" onclick="handleScheduleOverlayClick(event)">
   <div class="modal-sheet">
     <div class="modal-handle"></div>
@@ -794,7 +850,7 @@ select.field-inp { cursor: pointer; }
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script>
-const APP_VERSION = 23;
+const APP_VERSION = 24;
 let state = { babyName:'Baby', birthDate:null, feedingMode:'breast', logs:[], feedSession:null, sleepSession:null };
 let feedType = 'breast';
 let nappyType = 'pee';
@@ -830,6 +886,7 @@ function init() {
   refreshHistory();
   updateClock();
   resizeCanvas();
+  startTLPulseLoop();
   window.addEventListener('resize', resizeCanvas);
   setInterval(tick, 1000);
 }
@@ -939,7 +996,8 @@ function showPanel(name) {
   document.getElementById('nav-'+name).classList.add('active');
   if (name==='log') refreshHistory();
   if (name==='trends') refreshTrends();
-  if (name==='now') { resizeCanvas(); drawTimeline(); }
+  if (name==='now') { resizeCanvas(); drawTimeline(); startTLPulseLoop(); }
+  else stopTLPulseLoop();
 }
 
 function updateStatusCard() {
@@ -1135,14 +1193,19 @@ function resizeCanvas() {
   drawTimeline();
 }
 
-function updateTLPulse() {
-  const dot=document.getElementById('tlPulseDot');
-  if (!dot) return;
-  let color;
-  if (state.feedSession) color='#FF6B9D';
-  else if (state.sleepSession) color='#5B9CF6';
-  else color='#8888BB';
-  dot.style.background=color;
+function hexToRgba(hex,a) {
+  const n=parseInt(hex.slice(1),16);
+  return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;
+}
+
+let tlPulseTimer=null;
+function startTLPulseLoop() {
+  if (tlPulseTimer) return;
+  tlPulseTimer=setInterval(drawTimeline,150);
+}
+function stopTLPulseLoop() {
+  if (tlPulseTimer) clearInterval(tlPulseTimer);
+  tlPulseTimer=null;
 }
 
 function setTLWindow(hours, btn) {
@@ -1230,7 +1293,20 @@ function drawTimeline() {
   ctx.fillRect(W-2*dpr,0,2*dpr,H);
 
   // Pulsing dot showing the activity currently being recorded (feed/sleep/awake)
-  updateTLPulse();
+  let pulseColor='#9BA3C2';
+  if (state.feedSession) pulseColor='#FF6B9D';
+  else if (state.sleepSession) pulseColor='#5B9CF6';
+  const pulsePos=(Date.now()%1400)/1400;
+  const wave=0.5-0.5*Math.cos(pulsePos*2*Math.PI);
+  const pcx=W-12*dpr, pcy=py+ph/2;
+  ctx.beginPath();
+  ctx.arc(pcx,pcy,(3+5*wave)*dpr,0,Math.PI*2);
+  ctx.fillStyle=hexToRgba(pulseColor,0.35*(1-wave));
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(pcx,pcy,3*dpr,0,Math.PI*2);
+  ctx.fillStyle=pulseColor;
+  ctx.fill();
 
   // Adaptive tick interval to avoid label crowding
   const tickEl=document.getElementById('tlTicks');
@@ -1465,6 +1541,214 @@ function refreshTrends() {
       </div>
     </div>`;
   }).join('');
+}
+
+// Quick Add — natural language single entry
+let quickAddParsed=null;
+function openQuickAddModal() {
+  document.getElementById('quickAddInput').value='';
+  document.getElementById('quickAddPreview').innerHTML='';
+  document.getElementById('quickAddSaveBtn').disabled=true;
+  quickAddParsed=null;
+  document.getElementById('quickAddModal').classList.add('open');
+  setTimeout(()=>document.getElementById('quickAddInput').focus(),300);
+}
+function closeQuickAddModal() { document.getElementById('quickAddModal').classList.remove('open'); }
+function handleQuickAddOverlayClick(e) { if(e.target===document.getElementById('quickAddModal')) closeQuickAddModal(); }
+
+function detectQuickType(text) {
+  if(/\b(sleep|slept|sleeping|nap|napped|napping|snooze|snoozed)\b/.test(text)) return 'sleep';
+  if(/\b(feed|fed|feeding|breastfe|breastfed|nursed|nursing|bottle|formula)\b/.test(text)) return 'feed';
+  if(/\b(nappy|nappies|diaper|diapers|wee|weed|wet|pee|peed|poo|poop|pooped|dirty|change|changed)\b/.test(text)) return 'nappy';
+  return null;
+}
+function quickBaseDate(dayOffset, now) {
+  const base=new Date(now);
+  base.setDate(base.getDate()+dayOffset);
+  base.setHours(0,0,0,0);
+  return base;
+}
+function resolveQuickTime(hour, minute, ampm, dayOffset, now) {
+  const base=quickBaseDate(dayOffset, now);
+  const withHour=h=>{ const d=new Date(base); d.setHours(h,minute||0,0,0); return d.getTime(); };
+  if(ampm==='am') return withHour(hour%12);
+  if(ampm==='pm') return withHour((hour%12)+12);
+  const nowTs=now.getTime();
+  const optA=withHour(hour%12), optB=withHour((hour%12)+12);
+  const past=[optA,optB].filter(t=>t<=nowTs+5*60000);
+  const pool=past.length?past:[optA,optB];
+  return pool.reduce((a,b)=>Math.abs(nowTs-a)<Math.abs(nowTs-b)?a:b);
+}
+function resolveQuickRangeEnd(hour, minute, ampm, startTime, dayOffset, now) {
+  const base=quickBaseDate(dayOffset, now);
+  const withHour=h=>{ const d=new Date(base); d.setHours(h,minute||0,0,0); return d.getTime(); };
+  let candidates;
+  if(ampm==='am') candidates=[withHour(hour%12)];
+  else if(ampm==='pm') candidates=[withHour((hour%12)+12)];
+  else candidates=[withHour(hour%12), withHour((hour%12)+12)];
+  const after=candidates.filter(t=>t>startTime).sort((a,b)=>a-b);
+  if(after.length) return after[0];
+  return Math.min(...candidates)+24*3600000;
+}
+function parseQuickEntry(text) {
+  const raw=(text||'').trim();
+  if(!raw) return null;
+  const lower=raw.toLowerCase();
+  const type=detectQuickType(lower);
+  if(!type) return null;
+
+  const now=new Date();
+  let dayOffset=0;
+  if(/\byesterday\b|\blast night\b/.test(lower)) dayOffset=-1;
+
+  const timeTok='(\\d{1,2})(?::(\\d{2}))?\\s*(am|pm)?';
+  const rangeRe=new RegExp(timeTok+'\\s*(?:-|–|to|until|till)\\s*'+timeTok,'i');
+  const namedRe=new RegExp('\\b(?:at|from|around|@)\\s*'+timeTok,'i');
+  const bareRe=new RegExp('\\b'+timeTok+'\\b');
+
+  let startTime=null, endTime=null;
+  let m=lower.match(rangeRe);
+  if(m){
+    startTime=resolveQuickTime(parseInt(m[1],10), m[2]?parseInt(m[2],10):0, m[3], dayOffset, now);
+    endTime=resolveQuickRangeEnd(parseInt(m[4],10), m[5]?parseInt(m[5],10):0, m[6], startTime, dayOffset, now);
+  } else {
+    m=lower.match(namedRe)||lower.match(bareRe);
+    if(m){
+      startTime=resolveQuickTime(parseInt(m[1],10), m[2]?parseInt(m[2],10):0, m[3], dayOffset, now);
+    } else if(dayOffset===0){
+      startTime=now.getTime();
+    }
+  }
+  if(startTime==null) return null;
+
+  const entry={id:Date.now()+Math.random(), type, startTime, retro:true};
+  if(endTime!=null && endTime>startTime){
+    entry.endTime=endTime;
+    entry.duration=Math.round((endTime-startTime)/1000);
+  }
+  const durHrMatch=lower.match(/(\d+(?:\.\d+)?)\s*(?:hr|hrs|hour|hours)\b/);
+  const durMinMatch=lower.match(/(\d+(?:\.\d+)?)\s*(?:min|mins|minutes)\b/);
+  function applyDuration() {
+    if(entry.duration!=null) return;
+    let secs=null;
+    if(durHrMatch) secs=Math.round(parseFloat(durHrMatch[1])*3600);
+    else if(durMinMatch) secs=Math.round(parseFloat(durMinMatch[1])*60);
+    if(secs){ entry.duration=secs; entry.endTime=entry.startTime+secs*1000; }
+  }
+  if(type==='feed'){
+    entry.feedType=/\bformula|bottle\b/.test(lower)?'formula':'breast';
+    const volMatch=lower.match(/(\d+(?:\.\d+)?)\s*ml/);
+    if(volMatch && entry.feedType==='formula') entry.volume=parseFloat(volMatch[1]);
+    applyDuration();
+  } else if(type==='nappy'){
+    if(/\bboth|mixed\b/.test(lower)) entry.nappyType='both';
+    else if(/\bpoo|poop|pooped|dirty\b/.test(lower)) entry.nappyType='poo';
+    else entry.nappyType='pee';
+    entry.colour=''; entry.notes='';
+  } else if(type==='sleep'){
+    applyDuration();
+  }
+  return entry;
+}
+function quickEntryPreviewLabel(e) {
+  const label={feed:'🤱 Feed',nappy:'🩲 Nappy',sleep:'😴 Sleep'}[e.type];
+  if(e.type==='feed') return `${label} · ${e.feedType==='formula'?'Formula':'Breast'}${e.volume?' · '+e.volume+'ml':''}`;
+  if(e.type==='nappy') return `${label} · ${{pee:'Pee',poo:'Poo',both:'Both'}[e.nappyType]}`;
+  return label;
+}
+function quickEntryPreviewDetail(e) {
+  const start=fmtTime(e.startTime);
+  if(e.endTime) return `${start} – ${fmtTime(e.endTime)} · ${formatDur(e.duration)}`;
+  if(e.duration) return `${start} · ${formatDur(e.duration)}`;
+  return start;
+}
+function previewQuickAdd() {
+  const text=document.getElementById('quickAddInput').value;
+  const preview=document.getElementById('quickAddPreview');
+  const btn=document.getElementById('quickAddSaveBtn');
+  quickAddParsed=parseQuickEntry(text);
+  if(!text.trim()){ preview.innerHTML=''; btn.disabled=true; return; }
+  if(!quickAddParsed){
+    preview.innerHTML='<span style="color:var(--text-muted)">Couldn\'t work that out — try mentioning feed, sleep or nappy and a time, e.g. "slept from 1 to 2".</span>';
+    btn.disabled=true;
+    return;
+  }
+  preview.innerHTML=`<div style="background:var(--bg);border-radius:10px;padding:10px 12px;border:1px solid var(--border)">
+    <div style="font-weight:800;margin-bottom:2px">${quickEntryPreviewLabel(quickAddParsed)}</div>
+    <div style="color:var(--text-soft);font-size:12px">${quickEntryPreviewDetail(quickAddParsed)}</div>
+  </div>`;
+  btn.disabled=false;
+}
+function saveQuickAdd() {
+  if(!quickAddParsed) return;
+  state.logs.unshift(quickAddParsed);
+  state.logs.sort((a,b)=>b.startTime-a.startTime);
+  saveState(); closeQuickAddModal(); updateNowPanel(); refreshHistory();
+  showToast('Entry added ✅');
+}
+
+// Paste Text Import — bulk multi-line entries
+function openTextImportModal() {
+  document.getElementById('textImportArea').value='';
+  document.getElementById('textImportPreview').textContent='';
+  document.getElementById('textImportModal').classList.add('open');
+}
+function closeTextImportModal() { document.getElementById('textImportModal').classList.remove('open'); }
+function handleTextImportOverlayClick(e) { if(e.target===document.getElementById('textImportModal')) closeTextImportModal(); }
+function parseTextImportLine(line) {
+  line=line.trim();
+  if(!line || line.startsWith('#')) return null;
+  const m=line.match(/^(\d{4}-\d{2}-\d{2}|\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})\s+(\d{1,2}:\d{2})\s+(\w+)(.*)$/i);
+  if(!m) return null;
+  let [, dateStr, timeStr, typeRaw, rest]=m;
+  let isoDate;
+  if(/^\d{4}/.test(dateStr)) isoDate=dateStr;
+  else { const sep=dateStr.includes('/')?'/':'-'; const [d,mo,y]=dateStr.split(sep); isoDate=`${y}-${mo.padStart(2,'0')}-${d.padStart(2,'0')}`; }
+  const startTime=new Date(`${isoDate}T${timeStr}`).getTime();
+  if(isNaN(startTime)) return null;
+  const typeMap={feed:'feed',f:'feed',nappy:'nappy',n:'nappy',diaper:'nappy',d:'nappy',sleep:'sleep',s:'sleep'};
+  const type=typeMap[typeRaw.toLowerCase()];
+  if(!type) return null;
+  const parts=rest.trim().split(/\s+/).filter(Boolean);
+  const entry={id:Date.now()+Math.random(), type, startTime, retro:true};
+  if(type==='feed'){
+    const ftMap={breast:'breast',b:'breast',formula:'formula',f:'formula',bottle:'formula'};
+    let i=0;
+    entry.feedType=ftMap[(parts[0]||'').toLowerCase()]||'breast';
+    if(ftMap[(parts[0]||'').toLowerCase()]) i=1;
+    const dur=parseFloat(parts[i]);
+    if(!isNaN(dur)&&dur>0){ entry.duration=Math.round(dur*60); entry.endTime=startTime+entry.duration*1000; i++; }
+    const volMatch=(parts[i]||'').toLowerCase().match(/^(\d+(?:\.\d+)?)ml$/);
+    if(volMatch) entry.volume=parseFloat(volMatch[1]);
+  } else if(type==='nappy'){
+    const ntMap={pee:'pee',p:'pee',wet:'pee',poo:'poo',dirty:'poo',both:'both',b:'both',mixed:'both'};
+    entry.nappyType=ntMap[(parts[0]||'').toLowerCase()]||'pee';
+    entry.colour=parts.slice(1).join(' ');
+    entry.notes='';
+  } else if(type==='sleep'){
+    const dur=parseFloat(parts[0]);
+    if(!isNaN(dur)&&dur>0){ entry.duration=Math.round(dur*60); entry.endTime=startTime+entry.duration*1000; }
+  }
+  return entry;
+}
+function previewTextImport() {
+  const lines=document.getElementById('textImportArea').value.split('\n');
+  const valid=lines.map(parseTextImportLine).filter(Boolean).length;
+  const skipped=lines.filter(l=>{ const t=l.trim(); return t && !t.startsWith('#') && !parseTextImportLine(l); }).length;
+  const el=document.getElementById('textImportPreview');
+  if(!document.getElementById('textImportArea').value.trim()){ el.textContent=''; return; }
+  el.textContent=`Found ${valid} valid entr${valid===1?'y':'ies'}`+(skipped?`, ${skipped} line${skipped===1?'':'s'} skipped`:'');
+  el.style.color=valid>0?'#4CAF50':'var(--nappy)';
+}
+function importTextEntries() {
+  const lines=document.getElementById('textImportArea').value.split('\n');
+  const entries=lines.map(parseTextImportLine).filter(Boolean);
+  if(!entries.length){ showToast('No valid entries found'); return; }
+  const existing=new Set(state.logs.map(l=>l.type+':'+l.startTime));
+  const fresh=entries.filter(e=>!existing.has(e.type+':'+e.startTime));
+  state.logs=[...state.logs, ...fresh].sort((a,b)=>b.startTime-a.startTime);
+  saveState(); closeTextImportModal(); refreshHistory(); updateNowPanel();
+  showToast(`Added ${fresh.length} entr${fresh.length===1?'y':'ies'} ✅`);
 }
 
 function emailLog() {
