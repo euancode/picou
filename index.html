@@ -481,6 +481,11 @@ select.field-inp { cursor: pointer; }
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+.trend-compare { display: flex; align-items: center; gap: 8px; background: var(--card2); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; }
+.trend-compare-box { flex: 1; text-align: center; }
+.trend-compare-val { font-family: 'Nunito', sans-serif; font-weight: 900; font-size: 22px; line-height: 1.1; }
+.trend-compare-sub { font-size: 11px; color: var(--text-soft); font-weight: 600; }
+.trend-compare-divider { font-size: 10px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; }
 .sync-conflict { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin-bottom: 10px; }
 .sync-conflict-title { font-weight: 800; font-size: 13px; margin-bottom: 8px; }
 .sync-conflict-row { display: flex; gap: 8px; font-size: 12px; color: var(--text-soft); margin-bottom: 4px; }
@@ -737,6 +742,7 @@ select.field-inp { cursor: pointer; }
         <b>Picou</b> — a simple, private baby tracker. Your data stays on your phone (or syncs directly between phones, with no cloud account needed).<br>
         Version <span id="appVersionDisplay"></span>
       </div>
+      <button class="data-btn" id="installAppBtn" style="display:none" onclick="installApp()"><span class="d-icon">📲</span> Add Picou to Home Screen</button>
       <a class="tip-btn" href="https://buymeacoffee.com/picou" target="_blank" rel="noopener"><span>☕</span> Buy me a coffee</a>
       <button class="data-btn" onclick="shareApp()"><span class="d-icon">📣</span> Tell other parents about Picou</button>
 
@@ -921,7 +927,7 @@ select.field-inp { cursor: pointer; }
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script>
-const APP_VERSION = 31;
+const APP_VERSION = 32;
 let state = { babyName:'Baby', birthDate:null, feedingMode:'breast', logs:[], feedSession:null, sleepSession:null };
 let feedType = 'breast';
 let nappyType = 'pee';
@@ -953,6 +959,7 @@ function init() {
     });
   }
   document.getElementById('appVersionDisplay').textContent = APP_VERSION;
+  updateInstallBtn();
   updateNowPanel();
   refreshHistory();
   updateClock();
@@ -1655,6 +1662,7 @@ function computeTrend(type,ageDays,now){
   return{avgMs:actualAvg,blended,last,next:blended!=null?last.startTime+blended:null,count:logs.length,typical};
 }
 function fmtMs(ms){if(ms==null)return'–';const h=Math.floor(ms/3600000),m=Math.floor((ms%3600000)/60000);return h>0?`${h}h ${m}m`:`${m}m`;}
+function fmtPerDay(ms){if(ms==null)return null;return Math.max(1,Math.round(24*3600000/ms));}
 function refreshTrends() {
   const panel=document.getElementById('trendsContent'), ageDays=getAgeInDays(), now=Date.now();
   const types=[{type:'feed',emoji:'🤱',label:'Feeds',color:'var(--feed)'},{type:'nappy',emoji:'🩲',label:'Nappies',color:'var(--nappy)'},{type:'sleep',emoji:'😴',label:'Sleeps',color:'var(--sleep)'}];
@@ -1670,27 +1678,36 @@ function refreshTrends() {
     ?`<div style="color:var(--text-muted);font-size:12px;margin-bottom:6px">Blending your data with age-typical for a ${formatAge(ageDays)}.</div>`
     :`<div style="color:var(--text-muted);font-size:12px;margin-bottom:6px">Add date of birth in More for age-adjusted predictions.</div>`;
   const disclaimer=`<div style="background:var(--card2);border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:11px;line-height:1.5;color:var(--text-soft)">⚠️ <strong style="color:var(--text)">These trends are only a guide</strong> — every baby is different. Always seek advice from a health professional about your baby's feeding, sleep and development.</div>`;
+  const since24=now-24*3600000;
   panel.innerHTML=ageNote+disclaimer+types.map(({type,emoji,label,color})=>{
     const t=computeTrend(type,ageDays,now);
     const enough=t.count>=TREND_MIN_COUNT;
     const bc=!t.last?'var(--border)':(t.next&&t.next<now)?'#FF6B6B':(t.next&&t.next-now<30*60000)?'var(--nappy)':'#4CAF50';
     const warnBtn=`<span class="trend-warn" onclick="trendDataInfo('${label}',${t.count})" title="Tap to find out how much data is needed">⚠️ Not enough data yet</span>`;
-    let vsBar='';
-    if(enough&&t.avgMs!=null&&t.typical!=null){
-      const pct=Math.round((t.avgMs/t.typical-1)*100);
-      const c=pct<-15?'#FF6B6B':pct>15?'#4CAF50':'var(--nappy)';
-      const note=pct<-15?'more frequent than typical':pct>15?'less frequent than typical':'close to typical';
-      vsBar=`<div style="background:var(--bg);border-radius:8px;padding:7px 10px;margin-bottom:10px;display:flex;align-items:center;gap:8px"><div style="font-family:'Nunito',sans-serif;font-weight:900;font-size:17px;color:${c}">${pct>0?'+':''}${pct}%</div><div style="font-size:11px;color:var(--text-soft);font-weight:600">${note}</div></div>`;
-    }
+    const last24Count=state.logs.filter(l=>l.type===type&&l.startTime>=since24).length;
+    const typicalPerDay=fmtPerDay(t.typical);
+    const lcLabel=label.toLowerCase();
+    const compare=`<div class="trend-compare">
+        <div class="trend-compare-box">
+          <div class="trend-item-label">Last 24h</div>
+          <div class="trend-compare-val" style="color:${color}">${last24Count}</div>
+          <div class="trend-compare-sub">${lcLabel} logged</div>
+        </div>
+        <div class="trend-compare-divider">vs</div>
+        <div class="trend-compare-box">
+          <div class="trend-item-label">Typical${ageDays!=null?` · ${formatAge(ageDays)}`:' for this age'}</div>
+          <div class="trend-compare-val" style="color:var(--text-soft)">${typicalPerDay!=null?'~'+typicalPerDay:'–'}</div>
+          <div class="trend-compare-sub">${lcLabel} a day</div>
+        </div>
+      </div>`;
     return`<div class="trend-card" style="border-left-color:${bc}">
       <div class="trend-title" style="color:${color}">${emoji} ${label}</div>
-      ${vsBar}
+      ${compare}
       <div class="trend-grid">
         <div><div class="trend-item-label">All time</div><div class="trend-item-val">${t.count}</div></div>
-        <div><div class="trend-item-label">Your avg</div><div class="trend-item-val">${fmtMs(t.avgMs)}</div></div>
-        ${t.typical!=null?`<div style="grid-column:1/-1"><div class="trend-item-label">Age-typical</div><div class="trend-item-val" style="font-size:15px">${fmtMs(t.typical)}</div></div>`:''}
+        <div><div class="trend-item-label">Your avg gap</div><div class="trend-item-val" style="font-size:15px">${fmtMs(t.avgMs)}</div></div>
         <div><div class="trend-item-label">Last</div><div class="trend-item-val" style="font-size:15px">${t.last?fmtTime(t.last.startTime):'–'}</div></div>
-        <div style="grid-column:1/-1"><div class="trend-item-label">Next predicted</div><div class="trend-item-val" style="font-size:13px;font-weight:700">${enough?fmtNext(t.next):warnBtn}</div></div>
+        <div><div class="trend-item-label">Next predicted</div><div class="trend-item-val" style="font-size:13px;font-weight:700">${enough?fmtNext(t.next):warnBtn}</div></div>
       </div>
     </div>`;
   }).join('');
@@ -1907,6 +1924,41 @@ function importTextEntries() {
 function toggleAdvanced() {
   document.getElementById('advToggleBtn').classList.toggle('open');
   document.getElementById('advBody').classList.toggle('open');
+}
+let deferredInstallPrompt = null;
+function isStandaloneApp() {
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+function isIOSDevice() {
+  return /iphone|ipad|ipod/i.test(navigator.userAgent);
+}
+function updateInstallBtn() {
+  const btn=document.getElementById('installAppBtn');
+  if(!btn) return;
+  if(isStandaloneApp() || (!deferredInstallPrompt && !isIOSDevice())){ btn.style.display='none'; return; }
+  btn.style.display='';
+}
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  updateInstallBtn();
+});
+window.addEventListener('appinstalled', () => {
+  deferredInstallPrompt = null;
+  showToast('Picou added to your home screen 🎉');
+  updateInstallBtn();
+});
+function installApp() {
+  if (deferredInstallPrompt) {
+    deferredInstallPrompt.prompt();
+    deferredInstallPrompt.userChoice.finally(() => { deferredInstallPrompt=null; updateInstallBtn(); });
+    return;
+  }
+  if (isIOSDevice()) {
+    alert('Add Picou to your Home Screen on iPhone/iPad:\n\n1. Tap the Share button (square with an arrow up) in Safari\n2. Scroll down and tap "Add to Home Screen"\n3. Tap "Add"\n\nIt will then open full-screen, just like an app — and work offline.');
+    return;
+  }
+  alert('Look for "Install app" or "Add to Home Screen" in your browser\'s menu (often the ⋮ menu or the share icon) to add Picou to your home screen.');
 }
 function shareApp() {
   const text=`I've been using Picou to track ${state.babyName}'s feeds, sleep and nappies — it's simple, private and works offline. Worth a look if you're after something similar:`;
