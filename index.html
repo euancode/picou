@@ -959,7 +959,7 @@ select.field-inp { cursor: pointer; }
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script>
-const APP_VERSION = 35;
+const APP_VERSION = 36;
 let state = { babyName:'Baby', birthDate:null, feedingMode:'breast', logs:[], feedSession:null, sleepSession:null };
 let feedType = 'breast';
 
@@ -2012,8 +2012,19 @@ function isIOSDevice() {
 function updateInstallBtn() {
   const btn=document.getElementById('installAppBtn');
   if(!btn) return;
-  if(isStandaloneApp() || (!deferredInstallPrompt && !isIOSDevice())){ btn.style.display='none'; return; }
-  btn.style.display='';
+  if(isStandaloneApp()){
+    btn.style.display='';
+    btn.style.opacity='0.6';
+    btn.style.cursor='default';
+    btn.innerHTML='<span class="d-icon">✅</span> Installed to Home Screen';
+    btn.onclick=null;
+    return;
+  }
+  btn.style.opacity='';
+  btn.style.cursor='';
+  btn.innerHTML='<span class="d-icon">📲</span> Add Picou to Home Screen';
+  btn.onclick=installApp;
+  btn.style.display=(deferredInstallPrompt || isIOSDevice())?'':'none';
 }
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
