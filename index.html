@@ -142,7 +142,6 @@ body {
   font-size: 12px; font-weight: 700; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
 }
-.st-edit-ok { background: var(--sleep); color: #fff; }
 .st-edit-cancel { background: var(--card); color: var(--text-soft); }
 
 .next-card {
@@ -613,8 +612,7 @@ select.field-inp { cursor: pointer; }
           Started
           <span class="st-start-val" id="stStartVal" onclick="showStartEdit(event)">–</span>
           <span class="st-edit-pop" id="stEditPop">
-            <input type="time" class="st-time-inp" id="stStartInp">
-            <button type="button" class="st-edit-btn st-edit-ok" onclick="applyStartEdit(event)">✓</button>
+            <input type="time" class="st-time-inp" id="stStartInp" onchange="applyStartEdit(event)">
             <button type="button" class="st-edit-btn st-edit-cancel" onclick="hideStartEdit(event)">✕</button>
           </span>
           <span style="font-size:10px;color:var(--text-muted)" id="stStartHint">(tap to adjust)</span>
@@ -959,7 +957,7 @@ select.field-inp { cursor: pointer; }
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script>
-const APP_VERSION = 36;
+const APP_VERSION = 37;
 let state = { babyName:'Baby', birthDate:null, feedingMode:'breast', logs:[], feedSession:null, sleepSession:null };
 let feedType = 'breast';
 
