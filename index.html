@@ -108,11 +108,19 @@ body {
 .st-start-row { font-size: 11px; color: var(--text-muted); font-weight: 600; margin-top: 6px; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 .st-start-val { text-decoration: underline; text-underline-offset: 2px; cursor: pointer; color: var(--text-soft); }
 .st-time-inp {
-  display: none; font-size: 11px; padding: 2px 6px;
+  font-size: 11px; padding: 2px 6px;
   border: 1px solid var(--sleep); border-radius: 4px;
   background: var(--card2); color: var(--text);
   font-family: 'Nunito Sans', sans-serif;
 }
+.st-edit-pop { display: none; align-items: center; gap: 4px; }
+.st-edit-btn {
+  border: none; border-radius: 6px; width: 22px; height: 22px;
+  font-size: 12px; font-weight: 700; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.st-edit-ok { background: var(--sleep); color: #fff; }
+.st-edit-cancel { background: var(--card); color: var(--text-soft); }
 
 .tl-wrap {
   margin: 0 14px 10px;
@@ -465,7 +473,7 @@ select.field-inp { cursor: pointer; }
       <div>
         <div class="baby-name" id="babyNameDisplay" onclick="editName()">Baby</div>
         <input id="babyNameInput" type="text" onblur="saveName()" onkeydown="if(event.key==='Enter')saveName()" maxlength="20">
-        <div class="baby-age" id="babyAgeDisplay"></div>
+        <div class="baby-age" id="babyAgeDisplay" onclick="openScheduleModal()" style="cursor:pointer;text-decoration:underline;text-underline-offset:2px"></div>
       </div>
       <div class="clock">
         <div class="clock-time" id="clockDisplay"></div>
@@ -481,8 +489,12 @@ select.field-inp { cursor: pointer; }
         <div class="st-start-row" id="stStartRow" style="display:none">
           Started
           <span class="st-start-val" id="stStartVal" onclick="showStartEdit(event)">–</span>
-          <input type="time" class="st-time-inp" id="stStartInp" onchange="applyStartEdit()" onblur="hideStartEdit()">
-          <span style="font-size:10px;color:var(--text-muted)">(tap to adjust)</span>
+          <span class="st-edit-pop" id="stEditPop">
+            <input type="time" class="st-time-inp" id="stStartInp">
+            <button type="button" class="st-edit-btn st-edit-ok" onclick="applyStartEdit(event)">✓</button>
+            <button type="button" class="st-edit-btn st-edit-cancel" onclick="hideStartEdit(event)">✕</button>
+          </span>
+          <span style="font-size:10px;color:var(--text-muted)" id="stStartHint">(tap to adjust)</span>
         </div>
       </div>
       <div style="text-align:right">
@@ -587,13 +599,21 @@ select.field-inp { cursor: pointer; }
         <label>Date of birth</label>
         <input type="date" class="info-inp" id="birthDateInput" onchange="saveBirthDate()">
       </div>
+      <div class="info-row">
+        <label>Feeding</label>
+        <select class="info-inp" id="feedingModeInput" onchange="saveFeedingMode()">
+          <option value="breast">Exclusively breastfed</option>
+          <option value="formula">Formula fed</option>
+          <option value="combo">Combination fed</option>
+        </select>
+      </div>
       <button class="data-btn" onclick="checkForUpdates()"><span class="d-icon">🔄</span> Check for Updates</button>
       <button class="data-btn" onclick="emailLog()"><span class="d-icon">📧</span> Email Log</button>
       <button class="data-btn" onclick="exportData()"><span class="d-icon">⬆️</span> Export Data (JSON)</button>
       <button class="data-btn" onclick="document.getElementById('fileInput').click()"><span class="d-icon">⬇️</span> Import Data (JSON)</button>
       <input type="file" id="fileInput" accept=".json" onchange="importData(event)">
       <button class="data-btn danger" onclick="clearAllData()"><span class="d-icon">🗑️</span> Clear All Data</button>
-      <div style="text-align:center;margin-top:16px;font-size:11px;color:var(--text-muted);font-weight:600">Version <span id="appVersionDisplay"></span></div>
+      <div style="text-align:center;margin-top:16px;font-size:11px;color:#fff;font-weight:600">Version <span id="appVersionDisplay"></span></div>
     </div>
   </div>
 </div>
@@ -661,8 +681,11 @@ select.field-inp { cursor: pointer; }
         <div class="field-row">
           <div class="field-col"><div class="field-lbl">Duration (mins)</div><input type="number" class="field-inp" id="rf-duration" placeholder="e.g. 15" min="1" max="180"></div>
           <div class="field-col"><div class="field-lbl">Type</div>
-            <select class="field-inp" id="rf-side"><option value="breast">Breast</option><option value="formula">Formula</option></select>
+            <select class="field-inp" id="rf-side" onchange="toggleRfVolume()"><option value="breast">Breast</option><option value="formula">Formula</option></select>
           </div>
+        </div>
+        <div class="field-row" id="rf-volume-row" style="display:none">
+          <div class="field-col"><div class="field-lbl">Volume (ml)</div><input type="number" class="field-inp" id="rf-volume" placeholder="e.g. 120" min="1" max="500"></div>
         </div>
       </div>
       <div class="rfields" id="rfields-nappy">
@@ -692,9 +715,20 @@ select.field-inp { cursor: pointer; }
   </div>
 </div>
 
+<div class="modal-overlay" id="scheduleModal" onclick="handleScheduleOverlayClick(event)">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <span class="modal-title">📅 Typical Day · <span id="scheduleAgeLabel"></span></span>
+      <button class="modal-close" onclick="closeScheduleModal()">✕</button>
+    </div>
+    <div class="modal-body" id="scheduleBody"></div>
+  </div>
+</div>
+
 <script>
-const APP_VERSION = 16;
-let state = { babyName:'Baby', birthDate:null, logs:[], feedSession:null, sleepSession:null };
+const APP_VERSION = 17;
+let state = { babyName:'Baby', birthDate:null, feedingMode:'breast', logs:[], feedSession:null, sleepSession:null };
 let feedType = 'breast';
 let nappyType = 'pee';
 let nappyColour = '';
@@ -716,6 +750,7 @@ function init() {
   if (saved) { try { const p=JSON.parse(saved); state={...state,...p}; } catch(e){} }
   document.getElementById('babyNameDisplay').textContent = state.babyName||'Baby';
   if (state.birthDate) document.getElementById('birthDateInput').value = state.birthDate;
+  document.getElementById('feedingModeInput').value = state.feedingMode||'breast';
   updateAgeDisplay();
   if (state.feedSession) {
     feedType = state.feedSession.feedType||'breast';
@@ -761,6 +796,10 @@ function saveBirthDate() {
   state.birthDate=document.getElementById('birthDateInput').value||null;
   saveState(); updateAgeDisplay(); refreshTrends();
 }
+function saveFeedingMode() {
+  state.feedingMode=document.getElementById('feedingModeInput').value;
+  saveState();
+}
 function getAgeInDays() {
   if (!state.birthDate) return null;
   const b=new Date(state.birthDate); b.setHours(0,0,0,0);
@@ -777,6 +816,54 @@ function updateAgeDisplay() {
   const days=getAgeInDays();
   document.getElementById('babyAgeDisplay').textContent=days!=null?(formatAge(days)||''): '';
 }
+
+function getTypicalSchedule(days, mode) {
+  let feeds, sleepHours, naps, nappies;
+  if (days<14)      { feeds=[8,12]; sleepHours=[16,18]; naps=[5,7]; nappies=[8,12]; }
+  else if (days<30) { feeds=[7,10]; sleepHours=[15,17]; naps=[4,6]; nappies=[6,10]; }
+  else if (days<90) { feeds=[6,8];  sleepHours=[14,16]; naps=[4,5]; nappies=[5,8]; }
+  else if (days<180){ feeds=[5,7];  sleepHours=[13,15]; naps=[3,4]; nappies=[5,7]; }
+  else if (days<365){ feeds=[4,6];  sleepHours=[12,14]; naps=[2,3]; nappies=[4,6]; }
+  else              { feeds=[3,5];  sleepHours=[11,14]; naps=[1,2]; nappies=[3,5]; }
+  // Formula digests more slowly so formula-fed babies typically feed a little less often
+  if (mode==='formula') feeds=feeds.map(f=>Math.max(3,f-1));
+  else if (mode==='combo') feeds=[Math.max(3,feeds[0]-1),feeds[1]];
+  const feedEvery=[Math.round(24/feeds[1]*10)/10, Math.round(24/feeds[0]*10)/10];
+  return {feeds, sleepHours, naps, nappies, feedEvery};
+}
+function openScheduleModal() {
+  const days=getAgeInDays();
+  if (days==null) { showToast('Add a date of birth in Settings to see this'); return; }
+  const mode=state.feedingMode||'breast';
+  const s=getTypicalSchedule(Math.max(days,0), mode);
+  const modeLabel={breast:'🤱 Exclusively breastfed',formula:'🍼 Formula fed',combo:'🤱🍼 Combination fed'}[mode];
+  document.getElementById('scheduleAgeLabel').textContent=formatAge(days)||'Newborn';
+  document.getElementById('scheduleBody').innerHTML=`
+    <div style="font-size:12px;color:var(--text-soft);margin-bottom:14px">${modeLabel} · General guide for this age — every baby is different, so use this as a rough reference rather than a rule.</div>
+    <div class="trend-card" style="border-left-color:#FF6B9D">
+      <div class="trend-title" style="color:#FF6B9D">🤱 Feeds</div>
+      <div class="trend-grid">
+        <div><div class="trend-item-label">Per day</div><div class="trend-item-val">${s.feeds[0]}–${s.feeds[1]}</div></div>
+        <div><div class="trend-item-label">Roughly every</div><div class="trend-item-val">${s.feedEvery[0]}–${s.feedEvery[1]}h</div></div>
+      </div>
+    </div>
+    <div class="trend-card" style="border-left-color:#5B9CF6">
+      <div class="trend-title" style="color:#5B9CF6">😴 Sleep</div>
+      <div class="trend-grid">
+        <div><div class="trend-item-label">Total per day</div><div class="trend-item-val">${s.sleepHours[0]}–${s.sleepHours[1]}h</div></div>
+        <div><div class="trend-item-label">Naps</div><div class="trend-item-val">${s.naps[0]}–${s.naps[1]}</div></div>
+      </div>
+    </div>
+    <div class="trend-card" style="border-left-color:#FFB347">
+      <div class="trend-title" style="color:#FFB347">🩲 Nappies</div>
+      <div class="trend-grid">
+        <div><div class="trend-item-label">Per day</div><div class="trend-item-val">${s.nappies[0]}–${s.nappies[1]}</div></div>
+      </div>
+    </div>`;
+  document.getElementById('scheduleModal').classList.add('open');
+}
+function closeScheduleModal() { document.getElementById('scheduleModal').classList.remove('open'); }
+function handleScheduleOverlayClick(e) { if (e.target===document.getElementById('scheduleModal')) closeScheduleModal(); }
 
 function showPanel(name) {
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
@@ -835,23 +922,30 @@ function showStartEdit(e) {
   const inp=document.getElementById('stStartInp');
   inp.value=new Date(session.startTime).toTimeString().slice(0,5);
   document.getElementById('stStartVal').style.display='none';
-  inp.style.display='inline'; inp.focus();
+  document.getElementById('stStartHint').style.display='none';
+  document.getElementById('stEditPop').style.display='inline-flex';
+  inp.focus();
 }
-function applyStartEdit() {
+function applyStartEdit(e) {
+  if (e) e.stopPropagation();
   const session=state.feedSession||state.sleepSession;
   if (!session) return;
   const val=document.getElementById('stStartInp').value;
-  if (!val){hideStartEdit();return;}
-  const [h,m]=val.split(':').map(Number);
-  const d=new Date(); d.setHours(h,m,0,0);
-  let ts=d.getTime();
-  if (ts>Date.now()) ts-=86400000;
-  session.startTime=ts;
-  saveState(); hideStartEdit();
+  if (val) {
+    const [h,m]=val.split(':').map(Number);
+    const d=new Date(); d.setHours(h,m,0,0);
+    let ts=d.getTime();
+    if (ts>Date.now()) ts-=86400000;
+    session.startTime=ts;
+    saveState(); updateStatusCard();
+  }
+  hideStartEdit();
 }
-function hideStartEdit() {
-  document.getElementById('stStartInp').style.display='none';
+function hideStartEdit(e) {
+  if (e) e.stopPropagation();
+  document.getElementById('stEditPop').style.display='none';
   document.getElementById('stStartVal').style.display='inline';
+  document.getElementById('stStartHint').style.display='inline';
 }
 
 function updateActionCards() {
@@ -1111,7 +1205,7 @@ function renderItem(log) {
     } else {
       typeLabel = '🤱 Breast';
     }
-    detail = typeLabel+(log.duration?' · '+formatDur(log.duration):'');
+    detail = typeLabel+(log.duration?' · '+formatDur(log.duration):'')+(log.volume?' · '+log.volume+'ml':'');
   } else if (log.type==='nappy') {
     icon='🩲'; title='Nappy';
     const types={pee:'💛 Pee',poo:'💩 Poo',both:'💛💩 Both'};
@@ -1149,7 +1243,7 @@ function editLog(id) {
   ['rf-start','rn-time','rs-start','rs-end'].forEach(fid=>{const el=document.getElementById(fid);if(el)el.value='';});
   document.getElementById('rf-duration').value='';
   setRetroType(log.type);
-  if (log.type==='feed'){document.getElementById('rf-start').value=ts;document.getElementById('rf-duration').value=log.duration?Math.round(log.duration/60):'';document.getElementById('rf-side').value=log.feedType||'breast';}
+  if (log.type==='feed'){document.getElementById('rf-start').value=ts;document.getElementById('rf-duration').value=log.duration?Math.round(log.duration/60):'';document.getElementById('rf-side').value=log.feedType||'breast';toggleRfVolume();document.getElementById('rf-volume').value=log.volume||'';}
   else if (log.type==='nappy'){document.getElementById('rn-time').value=ts;document.getElementById('rn-type').value=log.nappyType||'pee';updateRetroColours();document.getElementById('rn-colour').value=log.colour||'';}
   else if (log.type==='sleep'){document.getElementById('rs-start').value=ts;if(log.endTime){const ed=new Date(log.endTime);document.getElementById('rs-end-date').value=ed.toISOString().slice(0,10);document.getElementById('rs-end').value=ed.toTimeString().slice(0,5);}}
   document.getElementById('retroModal').classList.add('open');
@@ -1165,6 +1259,7 @@ function openRetroModal(type) {
   ['rf-start','rn-time','rs-start','rs-end'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=ts;});
   document.getElementById('rf-duration').value='';
   document.getElementById('rf-side').value='breast';
+  document.getElementById('rf-volume').value='';
   document.getElementById('rn-type').value='pee';
   updateRetroColours(); setRetroType(retroType);
   document.getElementById('retroModal').classList.add('open');
@@ -1180,6 +1275,12 @@ function setRetroType(type) {
     document.getElementById('rtab-'+t).className='rtab'+(t===type?' sel-'+type:'');
     document.getElementById('rfields-'+t).className='rfields'+(t===type?' show':'');
   });
+  if (type==='feed') toggleRfVolume();
+}
+function toggleRfVolume() {
+  const isFormula=document.getElementById('rf-side').value==='formula';
+  document.getElementById('rf-volume-row').style.display=isFormula?'':'none';
+  if (!isFormula) document.getElementById('rf-volume').value='';
 }
 function updateRetroColours() {
   const type=document.getElementById('rn-type').value;
@@ -1193,7 +1294,9 @@ function saveRetroEntry() {
     if(!dv||!tv){showToast('Please set a date and time');return;}
     const st=new Date(dv+'T'+tv).getTime();
     const dur=Math.round((parseFloat(document.getElementById('rf-duration').value)||0)*60);
-    entry={type:'feed',startTime:st,endTime:dur?st+dur*1000:st,duration:dur,feedType:document.getElementById('rf-side').value,retro:true};
+    const ft=document.getElementById('rf-side').value;
+    const vol=ft==='formula'?(parseFloat(document.getElementById('rf-volume').value)||undefined):undefined;
+    entry={type:'feed',startTime:st,endTime:dur?st+dur*1000:st,duration:dur,feedType:ft,volume:vol,retro:true};
   } else if (retroType==='nappy'){
     const dv=document.getElementById('rn-date').value,tv=document.getElementById('rn-time').value;
     if(!dv||!tv){showToast('Please set a date and time');return;}
@@ -1283,7 +1386,7 @@ function emailLog() {
     const t = new Date(l.startTime).toLocaleString([],{weekday:'short',hour:'2-digit',minute:'2-digit',day:'numeric',month:'short'});
     if (l.type==='feed') {
       const tp = l.feedType==='formula'?'Formula':'Breast';
-      return `${t}  Feed (${tp})${l.duration?' '+formatDur(l.duration):''}`;
+      return `${t}  Feed (${tp})${l.duration?' '+formatDur(l.duration):''}${l.volume?' '+l.volume+'ml':''}`;
     }
     if (l.type==='sleep') return `${t}  Sleep${l.duration?' '+formatDur(l.duration):''}`;
     if (l.type==='nappy') {
