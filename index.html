@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Baby Tracker 🌙</title>
+<title>Picou 🍼</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0D0D1A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Baby">
+<meta name="apple-mobile-web-app-title" content="Picou">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Nunito+Sans:wght@400;600&display=swap" rel="stylesheet">
 <style>
@@ -46,6 +46,19 @@ body {
   min-height: 100dvh;
   overflow-x: hidden;
 }
+#splashScreen {
+  position: fixed; inset: 0; z-index: 9999;
+  background: radial-gradient(circle at 50% 38%, #23233e 0%, var(--bg) 72%);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 1; visibility: visible;
+  transition: opacity 0.4s ease, visibility 0s linear 0s;
+}
+#splashScreen.hide { opacity: 0; visibility: hidden; transition: opacity 0.4s ease, visibility 0s linear 0.4s; }
+.splash-center { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.splash-logo { width: 104px; height: 104px; border-radius: 28px; box-shadow: 0 12px 40px rgba(255,107,157,0.35); margin-bottom: 8px; }
+.splash-title { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 30px; color: var(--text); letter-spacing: 0.5px; }
+.splash-subtitle { font-family: 'Nunito Sans', sans-serif; font-weight: 600; font-size: 13px; color: var(--text-soft); }
+.splash-version { position: fixed; bottom: 18px; right: 18px; font-size: 11px; font-weight: 700; color: var(--text-soft); }
 .content { flex: 1; overflow-y: auto; padding-bottom: 80px; }
 .panel { display: none; }
 .panel.active { display: block; }
@@ -465,6 +478,15 @@ select.field-inp { cursor: pointer; }
 </head>
 <body>
 
+<div id="splashScreen">
+  <div class="splash-center">
+    <img src="./icon-512.png" alt="Picou" class="splash-logo">
+    <div class="splash-title">Picou</div>
+    <div class="splash-subtitle">the baby app tracker</div>
+  </div>
+  <div class="splash-version">v<span id="splashVersion"></span></div>
+</div>
+
 <div class="content">
 
   <!-- NOW PANEL -->
@@ -727,7 +749,7 @@ select.field-inp { cursor: pointer; }
 </div>
 
 <script>
-const APP_VERSION = 17;
+const APP_VERSION = 18;
 let state = { babyName:'Baby', birthDate:null, feedingMode:'breast', logs:[], feedSession:null, sleepSession:null };
 let feedType = 'breast';
 let nappyType = 'pee';
@@ -1475,6 +1497,8 @@ function showToast(msg) {
 }
 
 init();
+document.getElementById('splashVersion').textContent = APP_VERSION;
+setTimeout(() => document.getElementById('splashScreen').classList.add('hide'), 1000);
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js');
   navigator.serviceWorker.addEventListener('message', e => {

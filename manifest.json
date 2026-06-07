@@ -1,11 +1,11 @@
 {
-  "name": "Baby Tracker",
-  "short_name": "Baby",
+  "name": "Picou: the baby app tracker",
+  "short_name": "Picou",
   "description": "Track feeds, nappies and sleep",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#FFF8F2",
-  "theme_color": "#F2A7C3",
+  "background_color": "#0D0D1A",
+  "theme_color": "#0D0D1A",
   "orientation": "portrait",
   "icons": [
     {
