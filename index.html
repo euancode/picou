@@ -449,6 +449,14 @@ select.field-inp { cursor: pointer; }
 .trend-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .trend-item-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--text-soft); margin-bottom: 3px; }
 .trend-item-val { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 17px; }
+.trend-warn {
+  display: inline-block;
+  font-size: 12px; font-weight: 700;
+  color: var(--nappy);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 .sync-conflict { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin-bottom: 10px; }
 .sync-conflict-title { font-weight: 800; font-size: 13px; margin-bottom: 8px; }
 .sync-conflict-row { display: flex; gap: 8px; font-size: 12px; color: var(--text-soft); margin-bottom: 4px; }
@@ -786,7 +794,7 @@ select.field-inp { cursor: pointer; }
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script>
-const APP_VERSION = 22;
+const APP_VERSION = 23;
 let state = { babyName:'Baby', birthDate:null, feedingMode:'breast', logs:[], feedSession:null, sleepSession:null };
 let feedType = 'breast';
 let nappyType = 'pee';
@@ -1288,7 +1296,7 @@ function renderItem(log) {
     icon='😴'; title='Sleep';
     detail=log.duration?formatDur(log.duration):'In progress';
   }
-  const pastBadge=log.retro?` <span style="font-size:10px;background:var(--card2);padding:1px 6px;border-radius:8px;color:var(--text-soft)">past</span>`:''
+  const pastBadge=log.retro?` <span style="font-size:10px;background:var(--card2);padding:1px 6px;border-radius:8px;color:var(--text-soft)">manual log entry</span>`:''
   return `<div class="history-item" id="log-${log.id}">
     <div class="hi-icon ${log.type}">${icon}</div>
     <div class="hi-text">
@@ -1400,6 +1408,10 @@ function getTypicalMs(type,ageDays) {
   if(type==='sleep'){if(ageDays<28)return h(1.5);if(ageDays<56)return h(2);if(ageDays<90)return h(2.5);if(ageDays<120)return h(3);if(ageDays<180)return h(3.5);return h(4.5);}
   return null;
 }
+const TREND_MIN_COUNT = 5, TREND_MIN_DAYS = 3;
+function trendDataInfo(label, count) {
+  alert(`Not enough data yet for a reliable ${label.toLowerCase()} trend.\n\nWe recommend logging at least ${TREND_MIN_COUNT} ${label.toLowerCase()} over ${TREND_MIN_DAYS}+ days before relying on a personalised prediction.\n\nYou've logged ${count} so far — keep going and this will fill in automatically.`);
+}
 function refreshTrends() {
   const panel=document.getElementById('trendsContent'), ageDays=getAgeInDays(), now=Date.now();
   const types=[{type:'feed',emoji:'🤱',label:'Feeds',color:'var(--feed)'},{type:'nappy',emoji:'🩲',label:'Nappies',color:'var(--nappy)'},{type:'sleep',emoji:'😴',label:'Sleeps',color:'var(--sleep)'}];
@@ -1426,13 +1438,16 @@ function refreshTrends() {
     return`${time} <span style="color:#4CAF50;font-size:11px">(in ${rel})</span>`;
   }
   const ageNote=ageDays!=null
-    ?`<div style="color:var(--text-muted);font-size:12px;margin-bottom:14px">Blending your data with age-typical for a ${formatAge(ageDays)}.</div>`
-    :`<div style="color:var(--text-muted);font-size:12px;margin-bottom:14px">Add date of birth in More for age-adjusted predictions.</div>`;
-  panel.innerHTML=ageNote+types.map(({type,emoji,label,color})=>{
+    ?`<div style="color:var(--text-muted);font-size:12px;margin-bottom:6px">Blending your data with age-typical for a ${formatAge(ageDays)}.</div>`
+    :`<div style="color:var(--text-muted);font-size:12px;margin-bottom:6px">Add date of birth in More for age-adjusted predictions.</div>`;
+  const disclaimer=`<div style="background:var(--card2);border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:11px;line-height:1.5;color:var(--text-soft)">⚠️ <strong style="color:var(--text)">These trends are only a guide</strong> — every baby is different. Always seek advice from a health professional about your baby's feeding, sleep and development.</div>`;
+  panel.innerHTML=ageNote+disclaimer+types.map(({type,emoji,label,color})=>{
     const t=computeTrend(type);
+    const enough=t.count>=TREND_MIN_COUNT;
     const bc=!t.last?'var(--border)':(t.next&&t.next<now)?'#FF6B6B':(t.next&&t.next-now<30*60000)?'var(--nappy)':'#4CAF50';
+    const warnBtn=`<span class="trend-warn" onclick="trendDataInfo('${label}',${t.count})" title="Tap to find out how much data is needed">⚠️ Not enough data yet</span>`;
     let vsBar='';
-    if(t.avgMs!=null&&t.typical!=null){
+    if(enough&&t.avgMs!=null&&t.typical!=null){
       const pct=Math.round((t.avgMs/t.typical-1)*100);
       const c=pct<-15?'#FF6B6B':pct>15?'#4CAF50':'var(--nappy)';
       const note=pct<-15?'more frequent than typical':pct>15?'less frequent than typical':'close to typical';
@@ -1446,7 +1461,7 @@ function refreshTrends() {
         <div><div class="trend-item-label">Your avg</div><div class="trend-item-val">${fmtMs(t.avgMs)}</div></div>
         ${t.typical!=null?`<div style="grid-column:1/-1"><div class="trend-item-label">Age-typical</div><div class="trend-item-val" style="font-size:15px">${fmtMs(t.typical)}</div></div>`:''}
         <div><div class="trend-item-label">Last</div><div class="trend-item-val" style="font-size:15px">${t.last?fmtTime(t.last.startTime):'–'}</div></div>
-        <div><div class="trend-item-label">Next predicted</div><div class="trend-item-val" style="font-size:13px;font-weight:700">${fmtNext(t.next)}</div></div>
+        <div style="grid-column:1/-1"><div class="trend-item-label">Next predicted</div><div class="trend-item-val" style="font-size:13px;font-weight:700">${enough?fmtNext(t.next):warnBtn}</div></div>
       </div>
     </div>`;
   }).join('');
