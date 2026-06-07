@@ -774,8 +774,9 @@ select.field-inp { cursor: pointer; }
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script>
-const APP_VERSION = 20;
+const APP_VERSION = 21;
 let state = { babyName:'Baby', birthDate:null, feedingMode:'breast', logs:[], feedSession:null, sleepSession:null };
 let feedType = 'breast';
 let nappyType = 'pee';
@@ -1175,14 +1176,9 @@ function drawTimeline() {
   });
 
   // Active sessions — grow live + timer label
-  function drawActiveBar(startTime,color,glowRgba) {
+  function drawActiveBar(startTime,color) {
     const x1=toX(startTime), barW=W-x1;
     ctx.fillStyle=color; ctx.fillRect(x1,py,barW,ph);
-    const glowW=Math.min(24*dpr,barW), gx=W-glowW;
-    const grad=ctx.createLinearGradient(gx,0,W,0);
-    grad.addColorStop(0,glowRgba.replace(',1)','0)'));
-    grad.addColorStop(1,glowRgba);
-    ctx.fillStyle=grad; ctx.fillRect(gx,py,glowW,ph);
     if (barW>44*dpr) {
       const label=formatDur(Math.round((now-startTime)/1000));
       ctx.font=`700 ${10*dpr}px Nunito,sans-serif`;
@@ -1193,8 +1189,8 @@ function drawTimeline() {
       ctx.textAlign='left'; ctx.textBaseline='alphabetic';
     }
   }
-  if (state.feedSession) drawActiveBar(state.feedSession.startTime,'#FF6B9D','rgba(255,200,220,1)');
-  if (state.sleepSession) drawActiveBar(state.sleepSession.startTime,'#5B9CF6','rgba(160,210,255,1)');
+  if (state.feedSession) drawActiveBar(state.feedSession.startTime,'#FF6B9D');
+  if (state.sleepSession) drawActiveBar(state.sleepSession.startTime,'#5B9CF6');
 
   // Now line
   ctx.fillStyle='rgba(255,255,255,0.8)';
@@ -1491,7 +1487,7 @@ const SYNC_MAX_ENTRIES = 20;
 let syncStep = 'intro';
 let syncStream = null;
 let syncScanRAF = null;
-let syncDetector = null;
+let syncScanCanvas = null;
 let syncMode = null;
 let syncConflicts = [];
 let syncNewEntries = [];
@@ -1632,9 +1628,8 @@ function syncDecodeChecksum(text) {
 async function syncStartCamera(onResult) {
   const video=document.getElementById('syncVideo');
   if(!video) return;
-  if(!('BarcodeDetector' in window)){
-    showToast('❌ QR scanning isn\'t supported in this browser');
-    document.getElementById('syncScanHint').textContent='Update your browser to use the camera scanner, or use Export/Import instead.';
+  if(typeof jsQR!=='function'){
+    showToast('❌ QR scanner failed to load — check your connection');
     return;
   }
   try {
@@ -1642,13 +1637,19 @@ async function syncStartCamera(onResult) {
   } catch(err){ showToast('❌ Camera access denied'); return; }
   video.srcObject=syncStream;
   await video.play().catch(()=>{});
-  syncDetector=new BarcodeDetector({formats:['qr_code']});
-  const loop=async()=>{
+  if (!syncScanCanvas) syncScanCanvas=document.createElement('canvas');
+  const canvas=syncScanCanvas, cctx=canvas.getContext('2d',{willReadFrequently:true});
+  const loop=()=>{
     if(!syncStream) return;
-    try{
-      const codes=await syncDetector.detect(video);
-      if(codes && codes.length){ onResult(codes[0].rawValue); return; }
-    }catch(e){}
+    if(video.readyState===video.HAVE_ENOUGH_DATA && video.videoWidth){
+      canvas.width=video.videoWidth; canvas.height=video.videoHeight;
+      cctx.drawImage(video,0,0,canvas.width,canvas.height);
+      try{
+        const img=cctx.getImageData(0,0,canvas.width,canvas.height);
+        const code=jsQR(img.data,img.width,img.height,{inversionAttempts:'dontInvert'});
+        if(code && code.data){ onResult(code.data); return; }
+      }catch(e){}
+    }
     syncScanRAF=requestAnimationFrame(loop);
   };
   loop();
@@ -1657,7 +1658,7 @@ function syncStopCamera() {
   if(syncScanRAF) cancelAnimationFrame(syncScanRAF);
   syncScanRAF=null;
   if(syncStream){ syncStream.getTracks().forEach(t=>t.stop()); syncStream=null; }
-  syncDetector=null;
+  syncScanCanvas=null;
 }
 function syncOnScanned(text) {
   syncStopCamera();
