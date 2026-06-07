@@ -171,6 +171,15 @@ body {
   border-radius: 8px;
   display: block;
 }
+.tl-pulse-dot {
+  position: absolute;
+  top: 50%; right: 5px;
+  width: 7px; height: 7px;
+  margin-top: -3.5px;
+  border-radius: 50%;
+  pointer-events: none;
+  animation: blink 1.5s infinite;
+}
 .tl-ticks {
   position: relative;
   height: 14px;
@@ -550,6 +559,7 @@ select.field-inp { cursor: pointer; }
       <div class="tl-canvas-wrap">
         <canvas id="timelineCanvas" height="44"></canvas>
         <span id="tlNowPin">now</span>
+        <span id="tlPulseDot" class="tl-pulse-dot"></span>
       </div>
       <div class="tl-ticks" id="tlTicks"></div>
       <div class="tl-legend">
@@ -776,7 +786,7 @@ select.field-inp { cursor: pointer; }
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script>
-const APP_VERSION = 21;
+const APP_VERSION = 22;
 let state = { babyName:'Baby', birthDate:null, feedingMode:'breast', logs:[], feedSession:null, sleepSession:null };
 let feedType = 'breast';
 let nappyType = 'pee';
@@ -1117,6 +1127,16 @@ function resizeCanvas() {
   drawTimeline();
 }
 
+function updateTLPulse() {
+  const dot=document.getElementById('tlPulseDot');
+  if (!dot) return;
+  let color;
+  if (state.feedSession) color='#FF6B9D';
+  else if (state.sleepSession) color='#5B9CF6';
+  else color='#8888BB';
+  dot.style.background=color;
+}
+
 function setTLWindow(hours, btn) {
   tlWindowHours=hours;
   document.querySelectorAll('.tl-win-btn').forEach(b=>b.classList.remove('active'));
@@ -1162,7 +1182,7 @@ function drawTimeline() {
 
   const py=4*dpr, ph=H-8*dpr;
 
-  // Completed logs
+  // Completed logs — feed/sleep bars first
   const relevant=state.logs.filter(l=>(l.endTime||now)>=startTs&&l.startTime<=now);
   relevant.forEach(log=>{
     const x1=toX(log.startTime), x2=toX(log.endTime||now);
@@ -1170,8 +1190,6 @@ function drawTimeline() {
       ctx.fillStyle='#FF6B9D'; ctx.fillRect(x1,py,x2-x1,ph);
     } else if (log.type==='sleep') {
       ctx.fillStyle='#5B9CF6'; ctx.fillRect(x1,py,x2-x1,ph);
-    } else if (log.type==='nappy') {
-      ctx.fillStyle='#FFB347'; ctx.fillRect(Math.max(0,toX(log.startTime)-dpr),0,3*dpr,H);
     }
   });
 
@@ -1192,9 +1210,19 @@ function drawTimeline() {
   if (state.feedSession) drawActiveBar(state.feedSession.startTime,'#FF6B9D');
   if (state.sleepSession) drawActiveBar(state.sleepSession.startTime,'#5B9CF6');
 
+  // Nappy markers drawn last so they stay visible on top of feed/sleep bars
+  relevant.forEach(log=>{
+    if (log.type==='nappy') {
+      ctx.fillStyle='#FFB347'; ctx.fillRect(Math.max(0,toX(log.startTime)-dpr),0,3*dpr,H);
+    }
+  });
+
   // Now line
   ctx.fillStyle='rgba(255,255,255,0.8)';
   ctx.fillRect(W-2*dpr,0,2*dpr,H);
+
+  // Pulsing dot showing the activity currently being recorded (feed/sleep/awake)
+  updateTLPulse();
 
   // Adaptive tick interval to avoid label crowding
   const tickEl=document.getElementById('tlTicks');
