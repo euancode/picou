@@ -577,7 +577,7 @@ select.field-inp { cursor: pointer; }
       </div>
       <div class="tl-canvas-wrap">
         <canvas id="timelineCanvas" height="44"></canvas>
-        <span id="tlNowPin">now</span>
+        <span id="tlNowPin">now · --:--</span>
       </div>
       <div class="tl-ticks" id="tlTicks"></div>
       <div class="tl-legend">
@@ -850,7 +850,7 @@ select.field-inp { cursor: pointer; }
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script>
-const APP_VERSION = 24;
+const APP_VERSION = 25;
 let state = { babyName:'Baby', birthDate:null, feedingMode:'breast', logs:[], feedSession:null, sleepSession:null };
 let feedType = 'breast';
 let nappyType = 'pee';
@@ -1325,6 +1325,9 @@ function drawTimeline() {
     tickHtml+=`<span class="tl-tick" style="position:absolute;left:${pct.toFixed(1)}%;transform:translateX(-50%)">${label}</span>`;
   }
   tickEl.innerHTML=tickHtml;
+
+  const nowPin=document.getElementById('tlNowPin');
+  if (nowPin) nowPin.textContent='now · '+new Date(now).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
 }
 
 // History
