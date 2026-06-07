@@ -89,6 +89,16 @@ body {
 .clock-time { font-family: 'Nunito', sans-serif; font-size: 26px; font-weight: 900; letter-spacing: -1px; }
 .clock-date { font-size: 11px; color: var(--text-soft); margin-top: 1px; }
 
+.quote-card {
+  margin: 0 14px 10px;
+  border-radius: var(--r);
+  padding: 14px 18px;
+  border: 1px solid var(--border);
+  background: linear-gradient(135deg, var(--card2), var(--card));
+  cursor: pointer;
+}
+.quote-text { font-size: 13.5px; line-height: 1.5; font-style: italic; color: var(--text-soft); }
+.quote-hint { margin-top: 6px; font-size: 10px; color: var(--text-muted); text-align: right; letter-spacing: .2px; }
 .status-card {
   margin: 0 14px 10px;
   border-radius: var(--r);
@@ -589,6 +599,11 @@ select.field-inp { cursor: pointer; }
       </div>
     </div>
 
+    <div class="quote-card" id="quoteCard" onclick="rotateQuote()" title="Tap for another">
+      <div class="quote-text" id="quoteText">"…"</div>
+      <div class="quote-hint">✨ for you, today — tap for another</div>
+    </div>
+
     <div class="status-card" id="statusCard">
       <div class="st-left">
         <div class="st-emoji" id="stEmoji">😊</div>
@@ -927,9 +942,53 @@ select.field-inp { cursor: pointer; }
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script>
-const APP_VERSION = 32;
+const APP_VERSION = 33;
 let state = { babyName:'Baby', birthDate:null, feedingMode:'breast', logs:[], feedSession:null, sleepSession:null };
 let feedType = 'breast';
+
+const MOM_QUOTES = [
+  "You are exactly the parent your baby needs right now.",
+  "Some days, just getting through is the win — and that's enough.",
+  "This is hard because it matters. You're doing it anyway.",
+  "Your baby doesn't need perfect. They need you, and you're here.",
+  "Tired and still showing up? That counts as amazing.",
+  "You're allowed to find this hard and still be brilliant at it.",
+  "Every feed, every cuddle, every sleepless night — it's love in action.",
+  "Progress isn't always visible. Keep going; it's adding up.",
+  "You're not behind. You're exactly where you need to be.",
+  "Take the help when it's offered. You deserve care too.",
+  "This stage is intense, but it's also short — even on the long days.",
+  "Trust yourself. You know your baby better than anyone else does.",
+  "It's okay not to have it all figured out yet. Nobody does.",
+  "You showed up today. On days like this, that's everything.",
+  "Small steps still move you forward — they all count.",
+  "Be as kind to yourself as you are to your baby.",
+  "You're growing into this role one day at a time, and you're doing beautifully.",
+  "However today went, tomorrow gets a fresh start.",
+  "Your love is already shaping a whole little life. That's extraordinary.",
+  "You don't have to do this perfectly — just keep showing up. You are.",
+  "Asking for help is a strength, not a setback.",
+  "You're more capable than you feel right now, especially on the hard nights.",
+  "This moment feels huge, but it's also temporary.",
+  "Look how far you've already come. Truly.",
+  "You're not alone in this — every parent has stood exactly where you are.",
+  "Rest when you can. Caring for you is part of caring for them."
+];
+let lastQuoteIdx = -1;
+function rotateQuote() {
+  let idx;
+  if (MOM_QUOTES.length <= 1) idx = 0;
+  else { do { idx = Math.floor(Math.random()*MOM_QUOTES.length); } while (idx === lastQuoteIdx); }
+  lastQuoteIdx = idx;
+  try { localStorage.setItem('lastQuoteIdx', String(idx)); } catch(e){}
+  const el = document.getElementById('quoteText');
+  if (el) el.textContent = '"'+MOM_QUOTES[idx]+'"';
+}
+function initQuote() {
+  const saved = parseInt(localStorage.getItem('lastQuoteIdx'), 10);
+  if (!isNaN(saved)) lastQuoteIdx = saved;
+  rotateQuote();
+}
 let nappyType = 'pee';
 let nappyColour = '';
 let historyFilter = 'all';
@@ -959,6 +1018,7 @@ function init() {
     });
   }
   document.getElementById('appVersionDisplay').textContent = APP_VERSION;
+  initQuote();
   updateInstallBtn();
   updateNowPanel();
   refreshHistory();
