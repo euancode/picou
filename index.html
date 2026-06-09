@@ -817,6 +817,10 @@ select.field-inp { cursor: pointer; }
     </div>
     <div class="colour-grid" id="colourGrid"></div>
     <textarea class="notes-inp" id="nappyNotes" rows="2" placeholder="Notes (optional)…"></textarea>
+    <div class="field-row" style="margin-top:10px">
+      <div class="field-col"><div class="field-lbl">Date</div><input type="date" class="field-inp" id="nappy-date"></div>
+      <div class="field-col"><div class="field-lbl">Time</div><input type="time" class="field-inp" id="nappy-time"></div>
+    </div>
     <button class="sh-save-btn" onclick="logNappy()">✅ Log Nappy Change</button>
   </div>
 </div>
@@ -963,7 +967,7 @@ select.field-inp { cursor: pointer; }
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script>
-const APP_VERSION = 39;
+const APP_VERSION = 40;
 let state = { babyName:'Baby', birthDate:null, feedingMode:'breast', logs:[], feedSession:null, sleepSession:null };
 let feedType = 'breast';
 
@@ -1393,6 +1397,10 @@ function stopSleep() {
 function openNappySheet() {
   selNappyType('pee'); nappyColour='';
   document.getElementById('nappyNotes').value='';
+  const now=new Date();
+  const pad=n=>String(n).padStart(2,'0');
+  document.getElementById('nappy-date').value=`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+  document.getElementById('nappy-time').value=`${pad(now.getHours())}:${pad(now.getMinutes())}`;
   document.getElementById('nappySheet').classList.add('open');
   document.getElementById('nappyOverlay').classList.add('show');
 }
@@ -1415,7 +1423,9 @@ function updateColourGrid() {
 }
 function selectColour(label) { nappyColour=nappyColour===label?'':label; updateColourGrid(); }
 function logNappy() {
-  state.logs.unshift({id:Date.now(),type:'nappy',startTime:Date.now(),nappyType,colour:nappyColour,notes:document.getElementById('nappyNotes').value.trim()});
+  const d=document.getElementById('nappy-date').value, t=document.getElementById('nappy-time').value;
+  const startTime=(d&&t)?new Date(d+'T'+t).getTime():Date.now();
+  state.logs.unshift({id:Date.now(),type:'nappy',startTime,nappyType,colour:nappyColour,notes:document.getElementById('nappyNotes').value.trim()});
   saveState(); closeNappySheet(); updateNowPanel(); refreshHistory(); showToast('Nappy logged ✅');
 }
 
