@@ -664,6 +664,10 @@ select.field-inp { cursor: pointer; }
     <div class="side-row" id="sideRow">
       <button class="side-btn sel" id="feedBreast" onclick="selectFeedType('breast')">🤱 Breast</button>
       <button class="side-btn" id="feedFormula" onclick="selectFeedType('formula')">🍼 Formula</button>
+      <button class="side-btn" id="feedExpressed" onclick="selectFeedType('expressed')">🍼 Breast (bottle)</button>
+    </div>
+    <div class="side-row" id="feedVolRow">
+      <input type="number" class="field-inp" id="feedVolume" placeholder="Volume (ml)" min="1" max="500">
     </div>
 
     <div class="actions">
@@ -847,7 +851,7 @@ select.field-inp { cursor: pointer; }
         <div class="field-row">
           <div class="field-col"><div class="field-lbl">Duration (mins)</div><input type="number" class="field-inp" id="rf-duration" placeholder="e.g. 15" min="1" max="180"></div>
           <div class="field-col"><div class="field-lbl">Type</div>
-            <select class="field-inp" id="rf-side" onchange="toggleRfVolume()"><option value="breast">Breast</option><option value="formula">Formula</option></select>
+            <select class="field-inp" id="rf-side" onchange="toggleRfVolume()"><option value="breast">Breast</option><option value="formula">Formula</option><option value="expressed">Breast (bottle)</option></select>
           </div>
         </div>
         <div class="field-row" id="rf-volume-row" style="display:none">
@@ -912,7 +916,7 @@ select.field-inp { cursor: pointer; }
       <div style="background:var(--card);border-radius:var(--r-sm);padding:12px 14px;margin-bottom:14px;font-size:12px;font-weight:600;color:var(--text-soft);line-height:1.8">
         <strong style="color:var(--text)">Format:</strong> <code style="background:var(--border);padding:1px 5px;border-radius:4px">DATE HH:MM TYPE [details]</code><br>
         <strong style="color:var(--text)">Date:</strong> YYYY-MM-DD <em>or</em> DD/MM/YYYY &nbsp;·&nbsp; <strong style="color:var(--text)">Time:</strong> 24-hour<br>
-        <strong style="color:var(--feed)">feed</strong> [breast|formula] [mins] [vol]ml &nbsp;·&nbsp;
+        <strong style="color:var(--feed)">feed</strong> [breast|formula|expressed] [mins] [vol]ml &nbsp;·&nbsp;
         <strong style="color:var(--nappy)">nappy</strong> [pee|poo|both] [colour]<br>
         <strong style="color:var(--sleep)">sleep</strong> [mins] &nbsp;·&nbsp; Lines starting with <code style="background:var(--border);padding:1px 5px;border-radius:4px">#</code> are ignored
       </div>
@@ -967,9 +971,15 @@ select.field-inp { cursor: pointer; }
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script>
-const APP_VERSION = 40;
+const APP_VERSION = 41;
 let state = { babyName:'Baby', birthDate:null, feedingMode:'breast', logs:[], feedSession:null, sleepSession:null };
 let feedType = 'breast';
+function feedTypeInfo(ft) {
+  if(ft==='formula') return {emoji:'🍼', label:'Formula'};
+  if(ft==='expressed') return {emoji:'🍼', label:'Breast (bottle)'};
+  return {emoji:'🤱', label:'Breast'};
+}
+function isBottleFeedType(ft) { return ft==='formula'||ft==='expressed'; }
 
 const MOM_QUOTES = [
   "You are exactly the parent your baby needs right now.",
@@ -1038,7 +1048,7 @@ function init() {
   updateAgeDisplay();
   if (state.feedSession) {
     feedType = state.feedSession.feedType||'breast';
-    ['breast','formula'].forEach(t=>{
+    ['breast','formula','expressed'].forEach(t=>{
       document.getElementById('feed'+t.charAt(0).toUpperCase()+t.slice(1)).classList.toggle('sel',t===feedType);
     });
   }
@@ -1171,8 +1181,8 @@ function updateStatusCard() {
     card.classList.add('st-feed');
     document.getElementById('stEmoji').textContent='🤱';
     document.getElementById('stTag').textContent='Feeding';
-    const isFormula = state.feedSession.feedType==='formula';
-    document.getElementById('stName').textContent=isFormula?'Formula Feed':'Breastfeeding';
+    const ft=state.feedSession.feedType;
+    document.getElementById('stName').textContent=ft==='formula'?'Formula Feed':ft==='expressed'?'Bottle (EBM)':'Breastfeeding';
     const elapsed=Math.round((Date.now()-state.feedSession.startTime)/1000);
     document.getElementById('stTimer').textContent=formatDur(elapsed);
     startRow.style.display='flex';
@@ -1240,24 +1250,25 @@ function updateActionCards() {
   const fc=document.getElementById('feedCard'), sc=document.getElementById('sleepCard');
   const fl=document.getElementById('feedLabel'), sl=document.getElementById('sleepLabel');
   const fs=document.getElementById('feedSub'), ss=document.getElementById('sleepSub');
-  const sr=document.getElementById('sideRow');
+  const sr=document.getElementById('sideRow'), vr=document.getElementById('feedVolRow');
   if (state.feedSession) {
     fc.classList.add('ac-feed'); sc.classList.remove('ac-sleep');
     fl.textContent='Stop Feed';
     fs.textContent=formatDur(Math.round((Date.now()-state.feedSession.startTime)/1000));
     sr.classList.add('show');
+    vr.classList.toggle('show', isBottleFeedType(state.feedSession.feedType));
     sl.textContent='Start Sleep'; ss.textContent='';
   } else if (state.sleepSession) {
     sc.classList.add('ac-sleep'); fc.classList.remove('ac-feed');
     sl.textContent='Wake Up';
     ss.textContent=formatDur(Math.round((Date.now()-state.sleepSession.startTime)/1000));
-    sr.classList.remove('show');
+    sr.classList.remove('show'); vr.classList.remove('show');
     fl.textContent='Start Feed'; fs.textContent='';
   } else {
     fc.classList.remove('ac-feed'); sc.classList.remove('ac-sleep');
     fl.textContent='Start Feed'; fs.textContent='';
     sl.textContent='Start Sleep'; ss.textContent='';
-    sr.classList.remove('show');
+    sr.classList.remove('show'); vr.classList.remove('show');
   }
 }
 
@@ -1300,13 +1311,18 @@ function updateFeedBreakdown() {
   const feeds=state.logs.filter(l=>l.type==='feed' && l.startTime>=since);
   const breast=feeds.filter(f=>f.feedType==='breast').length;
   const formula=feeds.filter(f=>f.feedType==='formula');
-  if(!formula.length){ card.style.display='none'; return; }
-  const formulaMl=formula.reduce((a,f)=>a+(f.volume||0),0);
+  const expressed=feeds.filter(f=>f.feedType==='expressed');
+  const bottle=formula.length+expressed.length;
+  if(!bottle){ card.style.display='none'; return; }
+  const bottleMl=[...formula,...expressed].reduce((a,f)=>a+(f.volume||0),0);
   const parts=[];
+  const bottleParts=[];
+  if(formula.length) bottleParts.push(`${formula.length} formula`);
+  if(expressed.length) bottleParts.push(`${expressed.length} bottle (EBM)`);
   parts.push(breast
-    ? `🤱 ${breast} breast · 🍼 ${formula.length} formula`
-    : `🍼 ${formula.length} formula feed${formula.length===1?'':'s'}`);
-  if(formulaMl>0) parts.push(`${formulaMl}ml total`);
+    ? `🤱 ${breast} breast · 🍼 ${bottleParts.join(' · ')}`
+    : `🍼 ${bottleParts.join(' · ')}`);
+  if(bottleMl>0) parts.push(`${bottleMl}ml total`);
   document.getElementById('fbText').textContent=parts.join(' · ');
   card.style.display='';
 }
@@ -1365,17 +1381,24 @@ function stopFeed() {
   if (!state.feedSession) return;
   const now=Date.now();
   const duration=Math.round((now-state.feedSession.startTime)/1000);
-  const entry={id:now,type:'feed',startTime:state.feedSession.startTime,endTime:now,duration,feedType:state.feedSession.feedType||'breast'};
+  const ft=state.feedSession.feedType||'breast';
+  const entry={id:now,type:'feed',startTime:state.feedSession.startTime,endTime:now,duration,feedType:ft};
+  if(isBottleFeedType(ft)){
+    const vol=parseFloat(document.getElementById('feedVolume').value);
+    if(vol>0) entry.volume=vol;
+  }
   state.logs.unshift(entry); state.feedSession=null;
+  document.getElementById('feedVolume').value='';
   saveState(); updateNowPanel(); refreshHistory(); showToast('Feed saved — '+formatDur(duration)+' ✅');
 }
 
 function selectFeedType(type) {
   feedType=type;
-  ['breast','formula'].forEach(t=>{
+  ['breast','formula','expressed'].forEach(t=>{
     document.getElementById('feed'+t.charAt(0).toUpperCase()+t.slice(1)).classList.toggle('sel',t===type);
   });
-  if (state.feedSession) { state.feedSession.feedType=type; saveState(); }
+  document.getElementById('feedVolRow').classList.toggle('show', isBottleFeedType(type) && !!state.feedSession);
+  if (state.feedSession) { state.feedSession.feedType=type; saveState(); updateStatusCard(); }
 }
 
 function toggleSleep() {
@@ -1616,7 +1639,8 @@ function renderItem(log) {
     icon='🤱'; title='Feed';
     let typeLabel;
     if (log.feedType) {
-      typeLabel = log.feedType==='formula'?'🍼 Formula':'🤱 Breast';
+      const fti=feedTypeInfo(log.feedType);
+      typeLabel = `${fti.emoji} ${fti.label}`;
     } else if (log.side) {
       const sides={left:'👈 Left',right:'👉 Right',both:'🔄 Both'};
       typeLabel = sides[log.side]||'🤱 Breast';
@@ -1696,9 +1720,9 @@ function setRetroType(type) {
   if (type==='feed') toggleRfVolume();
 }
 function toggleRfVolume() {
-  const isFormula=document.getElementById('rf-side').value==='formula';
-  document.getElementById('rf-volume-row').style.display=isFormula?'':'none';
-  if (!isFormula) document.getElementById('rf-volume').value='';
+  const isBottle=isBottleFeedType(document.getElementById('rf-side').value);
+  document.getElementById('rf-volume-row').style.display=isBottle?'':'none';
+  if (!isBottle) document.getElementById('rf-volume').value='';
 }
 function updateRetroColours() {
   const type=document.getElementById('rn-type').value;
@@ -1713,7 +1737,7 @@ function saveRetroEntry() {
     const st=new Date(dv+'T'+tv).getTime();
     const dur=Math.round((parseFloat(document.getElementById('rf-duration').value)||0)*60);
     const ft=document.getElementById('rf-side').value;
-    const vol=ft==='formula'?(parseFloat(document.getElementById('rf-volume').value)||undefined):undefined;
+    const vol=isBottleFeedType(ft)?(parseFloat(document.getElementById('rf-volume').value)||undefined):undefined;
     entry={type:'feed',startTime:st,endTime:dur?st+dur*1000:st,duration:dur,feedType:ft,volume:vol,retro:true};
   } else if (retroType==='nappy'){
     const dv=document.getElementById('rn-date').value,tv=document.getElementById('rn-time').value;
@@ -1916,9 +1940,11 @@ function parseQuickEntry(text) {
     if(secs){ entry.duration=secs; entry.endTime=entry.startTime+secs*1000; }
   }
   if(type==='feed'){
-    entry.feedType=/\bformula|bottle\b/.test(lower)?'formula':'breast';
+    if(/\bexpressed|pumped|ebm\b/.test(lower)) entry.feedType='expressed';
+    else if(/\bformula|bottle\b/.test(lower)) entry.feedType='formula';
+    else entry.feedType='breast';
     const volMatch=lower.match(/(\d+(?:\.\d+)?)\s*ml/);
-    if(volMatch && entry.feedType==='formula') entry.volume=parseFloat(volMatch[1]);
+    if(volMatch && isBottleFeedType(entry.feedType)) entry.volume=parseFloat(volMatch[1]);
     applyDuration();
   } else if(type==='nappy'){
     if(/\bboth|mixed\b/.test(lower)) entry.nappyType='both';
@@ -1932,7 +1958,7 @@ function parseQuickEntry(text) {
 }
 function quickEntryPreviewLabel(e) {
   const label={feed:'🤱 Feed',nappy:'🩲 Nappy',sleep:'😴 Sleep'}[e.type];
-  if(e.type==='feed') return `${label} · ${e.feedType==='formula'?'Formula':'Breast'}${e.volume?' · '+e.volume+'ml':''}`;
+  if(e.type==='feed') return `${label} · ${feedTypeInfo(e.feedType).label}${e.volume?' · '+e.volume+'ml':''}`;
   if(e.type==='nappy') return `${label} · ${{pee:'Pee',poo:'Poo',both:'Both'}[e.nappyType]}`;
   return label;
 }
@@ -1992,7 +2018,7 @@ function parseTextImportLine(line) {
   const parts=rest.trim().split(/\s+/).filter(Boolean);
   const entry={id:Date.now()+Math.random(), type, startTime, retro:true};
   if(type==='feed'){
-    const ftMap={breast:'breast',b:'breast',formula:'formula',f:'formula',bottle:'formula'};
+    const ftMap={breast:'breast',b:'breast',formula:'formula',f:'formula',bottle:'formula',expressed:'expressed',e:'expressed',pumped:'expressed',ebm:'expressed'};
     let i=0;
     entry.feedType=ftMap[(parts[0]||'').toLowerCase()]||'breast';
     if(ftMap[(parts[0]||'').toLowerCase()]) i=1;
@@ -2116,7 +2142,7 @@ function shareApp() {
 function emailLogLine(l) {
   const t = new Date(l.startTime).toLocaleString([],{weekday:'short',hour:'2-digit',minute:'2-digit',day:'numeric',month:'short'});
   if (l.type==='feed') {
-    const tp = l.feedType==='formula'?'Formula':'Breast';
+    const tp = feedTypeInfo(l.feedType).label;
     return `${t}  Feed (${tp})${l.duration?' '+formatDur(l.duration):''}${l.volume?' '+l.volume+'ml':''}`;
   }
   if (l.type==='sleep') return `${t}  Sleep${l.duration?' '+formatDur(l.duration):''}`;
@@ -2233,7 +2259,7 @@ function syncEncodeEntries(entries) {
     const off=Math.round((e.startTime-baseTs)/1000);
     const dur=(e.duration||0)>0?e.duration:'-';
     let t,x1='-',x2='-';
-    if(e.type==='feed'){ t='f'; x1=e.feedType==='formula'?'f':'b'; x2=e.volume||'-'; }
+    if(e.type==='feed'){ t='f'; x1=e.feedType==='formula'?'f':e.feedType==='expressed'?'e':'b'; x2=e.volume||'-'; }
     else if(e.type==='nappy'){ t='n'; x1=(e.nappyType||'pee')[0]; }
     else { t='s'; }
     return `${off},${t},${dur},${x1},${x2}`;
@@ -2264,7 +2290,7 @@ function syncParseEntries(str, baseTs) {
     const dur=durStr==='-'?0:parseInt(durStr,10);
     const type=t==='f'?'feed':t==='n'?'nappy':'sleep';
     const out={type,startTime,endTime:dur?startTime+dur*1000:startTime,duration:dur};
-    if(type==='feed'){ out.feedType=x1==='f'?'formula':'breast'; if(x2!=='-') out.volume=parseFloat(x2); }
+    if(type==='feed'){ out.feedType=x1==='f'?'formula':x1==='e'?'expressed':'breast'; if(x2!=='-') out.volume=parseFloat(x2); }
     else if(type==='nappy'){ out.nappyType={p:'pee',o:'poo',b:'both'}[x1]||'pee'; }
     return out;
   });
@@ -2342,7 +2368,7 @@ function syncFinishMerge(){ syncMergeResult=syncApplyMerge(); syncGoto('merged')
 function syncFmtEntry(e) {
   const t=new Date(e.startTime).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
   let extra='';
-  if(e.type==='feed') extra=(e.feedType==='formula'?'🍼 Formula':'🤱 Breast')+(e.volume?` · ${e.volume}ml`:'');
+  if(e.type==='feed') { const fti=feedTypeInfo(e.feedType); extra=`${fti.emoji} ${fti.label}`+(e.volume?` · ${e.volume}ml`:''); }
   else if(e.type==='nappy') extra={pee:'💛 Pee',poo:'💩 Poo',both:'💛💩 Both'}[e.nappyType]||'';
   const dur=e.duration?formatDur(e.duration):'';
   return `${t}${dur?' · '+dur:''}${extra?' · '+extra:''}`;
