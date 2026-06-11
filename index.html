@@ -471,6 +471,29 @@ select.field-inp { cursor: pointer; }
   margin-bottom: 12px; transition: all 0.15s;
 }
 .add-past-btn:active { background: var(--card); }
+.plan-item {
+  background: var(--card); border-radius: var(--r-sm);
+  padding: 12px 14px; margin-bottom: 8px;
+  border: 1px solid var(--border); border-left: 4px solid var(--border);
+  display: flex; align-items: center; gap: 12px;
+}
+.plan-item.past { opacity: 0.5; }
+.plan-item.current { border-left-color: var(--feed); }
+.plan-time { font-size: 13px; font-weight: 800; font-family: 'Nunito', sans-serif; min-width: 64px; color: var(--text-soft); }
+.plan-icon { font-size: 18px; flex-shrink: 0; }
+.plan-text { flex: 1; }
+.plan-label { font-weight: 700; font-size: 14px; }
+.plan-sub { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+.plan-check {
+  width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0;
+  border: 1.5px solid var(--border); background: transparent; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; font-size: 13px; color: transparent;
+  transition: all 0.15s;
+}
+.plan-check.done { background: #4CAF50; border-color: #4CAF50; color: #fff; }
+.plan-del { background: none; border: none; font-size: 16px; cursor: pointer; opacity: 0.3; padding: 0 2px; flex-shrink: 0; }
+.plan-del:hover { opacity: 0.8; }
+.plan-add-form { background: var(--card); border-radius: var(--r-sm); padding: 14px; margin-top: 6px; border: 1px solid var(--border); }
 .sort-btn {
   background: none; border: 1px solid var(--border); border-radius: 50px;
   padding: 5px 11px; font-size: 11px; font-weight: 700;
@@ -739,6 +762,14 @@ select.field-inp { cursor: pointer; }
     </div>
   </div>
 
+  <!-- PLAN PANEL -->
+  <div class="panel" id="panel-plan">
+    <div style="padding:14px">
+      <div class="section-title" style="margin-bottom:14px">📅 Today's Plan</div>
+      <div id="planContent"></div>
+    </div>
+  </div>
+
   <!-- MORE PANEL -->
   <div class="panel" id="panel-more">
     <div style="padding:14px">
@@ -796,6 +827,10 @@ select.field-inp { cursor: pointer; }
   <button class="bnav-btn" id="nav-trends" onclick="showPanel('trends')">
     <span class="bnav-icon">📈</span>
     <span class="bnav-lbl">Trends</span>
+  </button>
+  <button class="bnav-btn" id="nav-plan" onclick="showPanel('plan')">
+    <span class="bnav-icon">📅</span>
+    <span class="bnav-lbl">Plan</span>
   </button>
   <button class="bnav-btn" id="nav-more" onclick="showPanel('more')">
     <span class="bnav-icon">⚙️</span>
@@ -971,8 +1006,8 @@ select.field-inp { cursor: pointer; }
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script>
-const APP_VERSION = 42;
-let state = { babyName:'Baby', birthDate:null, feedingMode:'breast', logs:[], feedSession:null, sleepSession:null };
+const APP_VERSION = 43;
+let state = { babyName:'Baby', birthDate:null, feedingMode:'breast', logs:[], feedSession:null, sleepSession:null, routineItems:[], routineDone:{date:'',ids:[]} };
 let feedType = 'breast';
 function feedTypeInfo(ft) {
   if(ft==='formula') return {emoji:'🍼', label:'Formula'};
@@ -1171,6 +1206,7 @@ function showPanel(name) {
   document.getElementById('nav-'+name).classList.add('active');
   if (name==='log') refreshHistory();
   if (name==='trends') refreshTrends();
+  if (name==='plan') refreshPlan();
   if (name==='now') { resizeCanvas(); drawTimeline(); startTLPulseLoop(); }
   else stopTLPulseLoop();
 }
@@ -1847,6 +1883,124 @@ function refreshTrends() {
     </div>`;
   }).join('')
   + `<button class="adv-toggle${showAllTimeStats?' open':''}" onclick="toggleAllTimeStats()">${showAllTimeStats?'Hide':'Show'} all-time stats <span class="chev">▾</span></button>`;
+}
+
+// ROUTINE PLAN
+function todayDateStr(d) {
+  d=d||new Date();
+  const pad=n=>String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+function ensureRoutineDoneToday() {
+  const today=todayDateStr();
+  if(!state.routineDone || state.routineDone.date!==today){
+    state.routineDone={date:today, ids:[]};
+    saveState();
+  }
+}
+function projectPredictedToday(now) {
+  const ageDays=getAgeInDays();
+  const dayEnd=new Date(now); dayEnd.setHours(23,59,59,999);
+  const items=[];
+  const types=[{type:'feed',emoji:'🤱',label:'Feed'},{type:'nappy',emoji:'🩲',label:'Nappy'},{type:'sleep',emoji:'😴',label:'Sleep'}];
+  types.forEach(({type,emoji,label})=>{
+    const t=computeTrend(type,ageDays,now);
+    if(t.next==null||!t.blended||t.count<TREND_MIN_COUNT) return;
+    let next=t.next, count=0;
+    while(next<=dayEnd.getTime()&&count<4){
+      if(next>=now-15*60000) items.push({time:next,emoji,label:`${label} (predicted)`,predicted:true});
+      next+=t.blended;
+      count++;
+    }
+  });
+  return items;
+}
+function refreshPlan() {
+  ensureRoutineDoneToday();
+  const panel=document.getElementById('planContent');
+  const now=Date.now();
+  const predicted=projectPredictedToday(now);
+  const custom=(state.routineItems||[]).map(it=>{
+    const [h,m]=it.time.split(':').map(Number);
+    const d=new Date(); d.setHours(h,m,0,0);
+    return {time:d.getTime(),emoji:it.emoji||'📌',label:it.label,id:it.id,custom:true,done:state.routineDone.ids.includes(it.id)};
+  });
+  const all=[...predicted,...custom].sort((a,b)=>a.time-b.time);
+  let html=`<div style="color:var(--text-muted);font-size:12px;margin-bottom:10px;line-height:1.5">Predicted feed/nappy/sleep times are based on ${state.babyName}'s recent pattern — add your own routine items below (naps out, appointments, bath time…).</div>`;
+  if(!all.length){
+    html+=`<div class="empty-state"><span class="empty-emoji">📅</span>Nothing planned for today yet</div>`;
+  } else {
+    html+=all.map(item=>{
+      const cls=['plan-item'];
+      if(item.custom){ if(item.done) cls.push('past'); }
+      else if(item.time<now) cls.push('past');
+      const right=item.custom
+        ? `<button class="plan-check${item.done?' done':''}" onclick="toggleRoutineItem('${item.id}')">✓</button>
+           <button class="plan-del" onclick="deleteRoutineItem('${item.id}')">✕</button>`
+        : '';
+      return `<div class="${cls.join(' ')}">
+        <div class="plan-time">${fmtTime(item.time)}</div>
+        <div class="plan-icon">${item.emoji}</div>
+        <div class="plan-text">
+          <div class="plan-label">${item.label}</div>
+          ${item.sub?`<div class="plan-sub">${item.sub}</div>`:''}
+        </div>
+        ${right}
+      </div>`;
+    }).join('');
+  }
+  html+=`<button class="add-past-btn" onclick="toggleRoutineAddForm()" id="routineAddBtn" style="margin-top:6px">+ Add to plan</button>
+  <div class="plan-add-form" id="routineAddForm" style="display:none">
+    <div class="field-row">
+      <div class="field-col"><div class="field-lbl">Time</div><input type="time" class="field-inp" id="routine-time"></div>
+      <div class="field-col"><div class="field-lbl">Icon</div>
+        <select class="field-inp" id="routine-emoji">
+          <option value="📌">📌 Other</option>
+          <option value="🛁">🛁 Bath</option>
+          <option value="🚶">🚶 Walk</option>
+          <option value="💊">💊 Medicine</option>
+          <option value="🏥">🏥 Appointment</option>
+          <option value="🎵">🎵 Activity</option>
+          <option value="👶">👶 Tummy time</option>
+          <option value="🍽️">🍽️ Meal</option>
+        </select>
+      </div>
+    </div>
+    <input type="text" class="field-inp" id="routine-label" placeholder="What's planned? e.g. Health visitor appointment" style="margin-bottom:10px">
+    <button class="sh-save-btn" onclick="addRoutineItem()">Add to plan</button>
+  </div>`;
+  panel.innerHTML=html;
+}
+function toggleRoutineAddForm() {
+  const form=document.getElementById('routineAddForm');
+  if(form.style.display!=='none'){ form.style.display='none'; return; }
+  const now=new Date(), pad=n=>String(n).padStart(2,'0');
+  document.getElementById('routine-time').value=`${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  document.getElementById('routine-label').value='';
+  document.getElementById('routine-emoji').value='📌';
+  form.style.display='';
+}
+function addRoutineItem() {
+  const time=document.getElementById('routine-time').value;
+  const label=document.getElementById('routine-label').value.trim();
+  const emoji=document.getElementById('routine-emoji').value;
+  if(!time||!label){ showToast('Add a time and description'); return; }
+  state.routineItems.push({id:'r'+Date.now(),time,label,emoji});
+  saveState();
+  document.getElementById('routineAddForm').style.display='none';
+  refreshPlan();
+}
+function toggleRoutineItem(id) {
+  const idx=state.routineDone.ids.indexOf(id);
+  if(idx===-1) state.routineDone.ids.push(id); else state.routineDone.ids.splice(idx,1);
+  saveState();
+  refreshPlan();
+}
+function deleteRoutineItem(id) {
+  state.routineItems=state.routineItems.filter(it=>it.id!==id);
+  state.routineDone.ids=state.routineDone.ids.filter(x=>x!==id);
+  saveState();
+  refreshPlan();
 }
 
 // Quick Add — natural language single entry
