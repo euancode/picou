@@ -971,7 +971,7 @@ select.field-inp { cursor: pointer; }
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script>
-const APP_VERSION = 41;
+const APP_VERSION = 42;
 let state = { babyName:'Baby', birthDate:null, feedingMode:'breast', logs:[], feedSession:null, sleepSession:null };
 let feedType = 'breast';
 function feedTypeInfo(ft) {
@@ -1060,6 +1060,8 @@ function init() {
   updateClock();
   resizeCanvas();
   startTLPulseLoop();
+  syncCheckIncomingLink();
+  window.addEventListener('hashchange', syncCheckIncomingLink);
   window.addEventListener('resize', resizeCanvas);
   setInterval(tick, 1000);
 }
@@ -2223,6 +2225,7 @@ let syncResultDetail = '';
 let syncCurrentCode = null;
 let syncCurrentCount = 0;
 let syncIncomingProfile = null;
+let syncLinkProcessing = false;
 
 function openSyncModal() {
   syncStep='intro'; syncConflicts=[]; syncNewEntries=[]; syncMergeResult=null;
@@ -2437,13 +2440,14 @@ function syncStopCamera() {
 }
 function syncShareCode() {
   if(!syncCurrentCode) return;
-  const text=`${state.babyName}'s Picou sync code (${syncCurrentCount} ${syncCurrentCount===1?'entry':'entries'}, plus ${state.babyName}'s name, birth date and feeding mode):\n\n${syncCurrentCode}\n\nOpen Picou → More → Quick Sync, then paste this code in to import it.`;
+  const link=location.origin+location.pathname+'#sync='+encodeURIComponent(syncCurrentCode);
+  const text=`${state.babyName}'s Picou data (${syncCurrentCount} ${syncCurrentCount===1?'entry':'entries'}, plus ${state.babyName}'s name, birth date and feeding mode).\n\nTap this link on the other phone — Picou will open and import everything automatically:\n${link}\n\nIf the link doesn't work, open Picou → More → Quick Sync → Scan/paste, and paste this code instead:\n${syncCurrentCode}`;
   if (navigator.share) {
-    navigator.share({ title:'Picou sync code', text }).catch(()=>{});
+    navigator.share({ title:'Picou sync', text }).catch(()=>{});
   } else if (navigator.clipboard) {
-    navigator.clipboard.writeText(text).then(()=>showToast('Code copied — paste it into a message ✅')).catch(()=>{});
+    navigator.clipboard.writeText(text).then(()=>showToast('Sync link copied — paste it into a message ✅')).catch(()=>{});
   } else {
-    window.location.href='mailto:?subject='+encodeURIComponent(state.babyName+' Picou sync code')+'&body='+encodeURIComponent(text);
+    window.location.href='mailto:?subject='+encodeURIComponent(state.babyName+' Picou sync')+'&body='+encodeURIComponent(text);
   }
 }
 function syncApplyPasted() {
@@ -2451,6 +2455,21 @@ function syncApplyPasted() {
   const text=(area&&area.value||'').trim();
   if(!text){ showToast('Paste a code first'); return; }
   syncOnScanned(text);
+}
+function syncCheckIncomingLink() {
+  const hash=location.hash;
+  if(!hash.startsWith('#sync=')) return;
+  syncLinkProcessing=true;
+  const data=decodeURIComponent(hash.slice(6));
+  history.replaceState(null,'',location.pathname+location.search);
+  const decoded=syncDecodeData(data);
+  if(!decoded){ showToast('❌ Sync link could not be read'); return; }
+  syncIncomingProfile=decoded.profile;
+  syncProcessIncoming(decoded.entries);
+  syncStep='intro'; syncMergeResult=null;
+  document.getElementById('syncModal').classList.add('open');
+  if(syncConflicts.length) syncGoto('conflicts');
+  else { syncMergeResult=syncApplyMerge(); syncGoto('merged'); }
 }
 function syncOnScanned(text) {
   syncStopCamera();
@@ -2496,7 +2515,7 @@ function renderSyncModal() {
           <div style="font-size:12px;color:var(--text-soft);margin-top:10px">Hold this up for the other phone to scan</div>
           ${note}
           <div style="font-size:11px;color:var(--text-muted);margin:14px 0 8px">— or, if they're not with you —</div>
-          <button class="data-btn" onclick="syncShareCode()"><span class="d-icon">📤</span> Send code via message</button>
+          <button class="data-btn" onclick="syncShareCode()"><span class="d-icon">🔗</span> Send sync link (auto-imports)</button>
         </div>
         <button class="retro-save-btn" style="margin-top:14px" onclick="syncGoto('scan')">Next: Scan or paste their code →</button>`;
     }
@@ -2598,7 +2617,7 @@ setTimeout(() => document.getElementById('splashScreen').classList.add('hide'), 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js');
   navigator.serviceWorker.addEventListener('message', e => {
-    if (e.data && e.data.type === 'SW_UPDATED') location.reload();
+    if (e.data && e.data.type === 'SW_UPDATED' && !syncLinkProcessing) location.reload();
   });
 }
 </script>
