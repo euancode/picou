@@ -1006,7 +1006,7 @@ select.field-inp { cursor: pointer; }
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script>
-const APP_VERSION = 43;
+const APP_VERSION = 44;
 let state = { babyName:'Baby', birthDate:null, feedingMode:'breast', logs:[], feedSession:null, sleepSession:null, routineItems:[], routineDone:{date:'',ids:[]} };
 let feedType = 'breast';
 function feedTypeInfo(ft) {
@@ -2378,6 +2378,12 @@ let syncVerifyOk = false;
 let syncResultDetail = '';
 let syncCurrentCode = null;
 let syncCurrentCount = 0;
+let syncCurrentLinkCode = null;
+let syncCurrentLinkCount = 0;
+// Messaging apps stop auto-linking very long URLs — if the full sync code
+// would make a link this long, fall back to a trimmed code (most recent
+// entries) for the link, and let the full code travel as the paste fallback.
+const SYNC_LINK_MAX_LEN = 3000;
 let syncIncomingProfile = null;
 let syncLinkProcessing = false;
 
@@ -2395,6 +2401,22 @@ function syncGoto(step){ syncStep=step; renderSyncModal(); }
 
 function syncAllEntries() {
   return state.logs.slice().sort((a,b)=>b.startTime-a.startTime);
+}
+// Compact, URL-safe (no %-escapes) base64 encoding for sync links —
+// keeps the link short enough that messaging apps reliably auto-link it.
+function b64urlEncode(str) {
+  const bytes=new TextEncoder().encode(str);
+  let bin='';
+  bytes.forEach(b=>bin+=String.fromCharCode(b));
+  return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+function b64urlDecode(str) {
+  str=str.replace(/-/g,'+').replace(/_/g,'/');
+  while(str.length%4) str+='=';
+  const bin=atob(str);
+  const bytes=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
 }
 function syncProfilePart() {
   return encodeURIComponent(JSON.stringify({n:state.babyName||'', b:state.birthDate||'', f:state.feedingMode||''}));
@@ -2438,7 +2460,16 @@ function syncBuildShowData() {
       if(syncFitsInQR(candidate)){ qrData=candidate; qrCount=n; break; }
     }
   }
-  return {full, total:all.length, qrData, qrCount};
+  let linkData=full, linkCount=all.length;
+  if(b64urlEncode(full).length>SYNC_LINK_MAX_LEN){
+    let n=all.length;
+    while(n>1){
+      n = n>40 ? Math.floor(n*0.85) : n-1;
+      const candidate=syncEncodeEntries(all.slice(0,n));
+      if(b64urlEncode(candidate).length<=SYNC_LINK_MAX_LEN){ linkData=candidate; linkCount=n; break; }
+    }
+  }
+  return {full, total:all.length, qrData, qrCount, linkData, linkCount};
 }
 function syncParseEntries(str, baseTs) {
   return str.split(';').filter(Boolean).map(p=>{
@@ -2594,8 +2625,11 @@ function syncStopCamera() {
 }
 function syncShareCode() {
   if(!syncCurrentCode) return;
-  const link=location.origin+location.pathname+'#sync='+encodeURIComponent(syncCurrentCode);
-  const text=`${state.babyName}'s Picou data (${syncCurrentCount} ${syncCurrentCount===1?'entry':'entries'}, plus ${state.babyName}'s name, birth date and feeding mode).\n\nTap this link on the other phone — Picou will open and import everything automatically:\n${link}\n\nIf the link doesn't work, open Picou → More → Quick Sync → Scan/paste, and paste this code instead:\n${syncCurrentCode}`;
+  const link=location.origin+location.pathname+'#sync='+b64urlEncode(syncCurrentLinkCode);
+  const trimmedNote=syncCurrentLinkCount<syncCurrentCount
+    ? ` (the link carries your most recent ${syncCurrentLinkCount} of ${syncCurrentCount} entries — keep it short enough to stay tappable; paste the full code below for everything)`
+    : '';
+  const text=`${state.babyName}'s Picou data (${syncCurrentCount} ${syncCurrentCount===1?'entry':'entries'}, plus ${state.babyName}'s name, birth date and feeding mode).\n\nTap this link on the other phone — Picou will open and import everything automatically${trimmedNote}:\n${link}\n\nIf the link doesn't work, open Picou → More → Quick Sync → Scan/paste, and paste this code instead:\n${syncCurrentCode}`;
   if (navigator.share) {
     navigator.share({ title:'Picou sync', text }).catch(()=>{});
   } else if (navigator.clipboard) {
@@ -2614,7 +2648,9 @@ function syncCheckIncomingLink() {
   const hash=location.hash;
   if(!hash.startsWith('#sync=')) return;
   syncLinkProcessing=true;
-  const data=decodeURIComponent(hash.slice(6));
+  const raw=hash.slice(6);
+  let data;
+  try { data=b64urlDecode(raw); } catch(e) { data=decodeURIComponent(raw); }
   history.replaceState(null,'',location.pathname+location.search);
   const decoded=syncDecodeData(data);
   if(!decoded){ showToast('❌ Sync link could not be read'); return; }
@@ -2656,6 +2692,8 @@ function renderSyncModal() {
     const built=syncBuildShowData();
     syncCurrentCode=built?built.full:null;
     syncCurrentCount=built?built.total:0;
+    syncCurrentLinkCode=built?built.linkData:null;
+    syncCurrentLinkCount=built?built.linkCount:0;
     if(!built){
       body.innerHTML=`<div style="text-align:center;padding:30px 0;color:var(--text-soft);font-size:13px">No entries logged yet to share.</div>
         <button class="retro-save-btn" onclick="syncGoto('scan')">Next: Scan their code →</button>`;
