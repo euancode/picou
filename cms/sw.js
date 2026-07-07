@@ -1,5 +1,5 @@
 const CACHE = 'clarity-v1';
-const ASSETS = ['./', './index.html', './manifest.json'];
+const ASSETS = ['./', './index.html', './manifest.json', './content.json'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
@@ -15,7 +15,10 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  if (e.request.mode === 'navigate') {
+  const url = new URL(e.request.url);
+  // Network-first for HTML and content.json so updates propagate immediately
+  const networkFirst = e.request.mode === 'navigate' || url.pathname.endsWith('/content.json');
+  if (networkFirst) {
     e.respondWith(
       fetch(e.request).then(r => {
         if (r && r.status === 200) caches.open(CACHE).then(c => c.put(e.request, r.clone()));
@@ -24,6 +27,7 @@ self.addEventListener('fetch', e => {
     );
     return;
   }
+  // Cache-first for other assets
   e.respondWith(
     caches.match(e.request).then(cached => cached || fetch(e.request).then(r => {
       if (r && r.status === 200) caches.open(CACHE).then(c => c.put(e.request, r.clone()));
